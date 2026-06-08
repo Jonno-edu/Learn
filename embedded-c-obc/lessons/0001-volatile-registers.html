@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0001 - Volatile Registers</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #111827;
+      --muted: #5b6472;
+      --line: #d8dee8;
+      --panel: #f7f9fc;
+      --accent: #0f766e;
+      --accent-soft: #dff7f2;
+      --bad: #9f1239;
+      --good: #166534;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 16px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: #ffffff;
+    }
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 36px 24px 56px;
+    }
+    header {
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+    }
+    h1 {
+      font-size: 38px;
+      line-height: 1.08;
+      margin: 0 0 10px;
+    }
+    h2 {
+      font-size: 23px;
+      margin: 30px 0 10px;
+    }
+    h3 {
+      font-size: 17px;
+      margin: 18px 0 8px;
+    }
+    p, li {
+      max-width: 78ch;
+    }
+    .lede {
+      font-size: 18px;
+      color: var(--muted);
+      max-width: 72ch;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin: 16px 0;
+    }
+    .callout {
+      background: var(--accent-soft);
+      border-left: 5px solid var(--accent);
+      padding: 14px 16px;
+      margin: 16px 0;
+    }
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+    pre {
+      background: #0f172a;
+      color: #e5e7eb;
+      border-radius: 8px;
+      padding: 16px;
+      overflow-x: auto;
+    }
+    a { color: #0f766e; }
+    button {
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      background: white;
+      color: var(--accent);
+      padding: 8px 11px;
+      margin: 4px 6px 4px 0;
+      font: inherit;
+      cursor: pointer;
+    }
+    button:hover, button:focus {
+      background: var(--accent-soft);
+      outline: none;
+    }
+    .feedback {
+      min-height: 28px;
+      margin-top: 8px;
+      font-weight: 650;
+    }
+    .ok { color: var(--good); }
+    .no { color: var(--bad); }
+    .task-list li {
+      margin-bottom: 8px;
+    }
+    @media print {
+      main { padding: 18mm; }
+      button, .feedback { display: none; }
+      .panel, .callout, pre { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Lesson 0001: <code>volatile</code> Is For Hardware Visibility</h1>
+      <p class="lede">
+        In OBC firmware, <code>volatile</code> is a precise tool: it tells the compiler that a load or store
+        matters because something outside normal C code may observe or change the object. Today you will
+        learn the one correct mental model and apply it to a tiny register driver.
+      </p>
+    </header>
+
+    <section>
+      <h2>The One Thing</h2>
+      <p>
+        A non-volatile object is controlled by the C abstract machine. The optimizer may keep it in a
+        register, remove repeated reads, or remove stores whose results are never used.
+      </p>
+      <p>
+        A volatile-qualified access is an observable side effect. For memory-mapped I/O, this is what
+        prevents the compiler from silently turning repeated register polls into stale cached values.
+      </p>
+      <div class="callout">
+        <strong>Mission rule:</strong> use <code>volatile</code> for hardware registers. Use synchronization
+        primitives for communication between tasks and ISRs.
+      </div>
+    </section>
+
+    <section>
+      <h2>OBC Example</h2>
+      <p>
+        Imagine a UART status register where bit 0 becomes one when a received byte is ready. The register
+        can change because the peripheral changes it, not because your C code assigns to it.
+      </p>
+      <pre><code>#include &lt;stdint.h&gt;
+
+typedef struct {
+    volatile uint32_t STATUS;
+    volatile uint32_t DATA;
+} UartRegs;
+
+enum {
+    UART_STATUS_RX_READY = 1u &lt;&lt; 0
+};
+
+uint8_t uart_read_byte(UartRegs *uart)
+{
+    while ((uart-&gt;STATUS &amp; UART_STATUS_RX_READY) == 0u) {
+        /* Real flight code should use a timeout, not an infinite wait. */
+    }
+
+    return (uint8_t)(uart-&gt;DATA &amp; 0xffu);
+}</code></pre>
+      <p>
+        The volatile members mean every read of <code>STATUS</code> and <code>DATA</code> must be emitted as
+        an actual access. The pointer itself does not need to be volatile here; the pointed-to registers do.
+      </p>
+    </section>
+
+    <section class="panel">
+      <h2>Quick Check</h2>
+      <h3>1. A sensor driver's status register changes without a C assignment. What should be volatile?</h3>
+      <button data-target="q1" data-answer="wrong" data-feedback="That makes the pointer variable special, but not the register object being read.">The pointer variable only</button>
+      <button data-target="q1" data-answer="right" data-feedback="Correct. The register object is what must be read from hardware each time.">The register object or struct member</button>
+      <button data-target="q1" data-answer="wrong" data-feedback="No. A mutex protects shared ownership; it does not force hardware register loads.">A mutex around the read</button>
+      <div class="feedback" id="q1"></div>
+
+      <h3>2. A FreeRTOS ISR sets a flag and a task polls it. Is <code>volatile bool flag</code> a complete design?</h3>
+      <button data-target="q2" data-answer="wrong" data-feedback="Not complete. Volatile does not define synchronization, ownership, blocking behavior, or memory ordering.">Yes</button>
+      <button data-target="q2" data-answer="right" data-feedback="Correct. Prefer a task notification, queue, semaphore, or another reviewed RTOS primitive.">No</button>
+      <div class="feedback" id="q2"></div>
+    </section>
+
+    <section>
+      <h2>Practice</h2>
+      <p>
+        Open the exercise at <code>exercises/0001-volatile-registers/</code>. Your goal is to finish a tiny
+        UART register helper and make the tests pass.
+      </p>
+      <ol class="task-list">
+        <li>Read <code>exercise.c</code>.</li>
+        <li>Implement <code>uart_rx_ready</code> and <code>uart_read_data</code>.</li>
+        <li>Run <code>rtk make test</code> from the exercise directory.</li>
+        <li>Explain, in one sentence, why <code>STATUS</code> and <code>DATA</code> are volatile.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Sources</h2>
+      <ul>
+        <li><a href="https://en.cppreference.com/c/language/volatile">cppreference: C volatile type qualifier</a></li>
+        <li><a href="https://www.sei.cmu.edu/library/sei-cert-c-and-c-coding-standards/">SEI CERT C Coding Standard collection</a></li>
+        <li><a href="https://freertos.org/Documentation/02-Kernel/04-API-references/05-Direct-to-task-notifications/00-RTOS-task-notifications">FreeRTOS task notification API reference</a></li>
+      </ul>
+      <p>
+        Ask the agent follow-up questions whenever a word, rule, or example feels fuzzy. The goal is not
+        memorizing keywords; it is building judgment you can use while writing flight firmware.
+      </p>
+    </section>
+  </main>
+
+  <script>
+    document.querySelectorAll("button[data-target]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const node = document.getElementById(button.dataset.target);
+        node.textContent = button.dataset.feedback;
+        node.className = "feedback " + (button.dataset.answer === "right" ? "ok" : "no");
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sensor Register Patterns - Quick Reference</title>
+  <style>
+    :root {
+      --ink: #13202b;
+      --muted: #53616f;
+      --line: #d6dee8;
+      --panel: #f7f9fc;
+      --accent: #0f766e;
+      --warn: #9a3412;
+    }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: white;
+      font: 16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 32px 24px 48px;
+    }
+    h1 {
+      margin: 0 0 12px;
+      padding-bottom: 12px;
+      border-bottom: 3px solid var(--accent);
+      font-size: 34px;
+      line-height: 1.1;
+    }
+    h2 {
+      margin: 28px 0 10px;
+      font-size: 21px;
+    }
+    p, li { max-width: 78ch; }
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+    pre {
+      overflow-x: auto;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    .box {
+      margin: 16px 0;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--accent);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    .warn { border-left-color: var(--warn); }
+    @media print {
+      main { padding: 18mm; }
+      .box, pre { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Sensor Register Patterns</h1>
+    <p>
+      Real sensor drivers are mostly careful translation from a datasheet register map into named masks,
+      shifts, and byte-combining helpers. Treat the datasheet as the contract and the C code as a direct,
+      reviewable encoding of that contract.
+    </p>
+
+    <h2>Status Bits</h2>
+    <p>
+      A status register often contains independent bits. For a BMP280-style status byte, bit 3 indicates a
+      measurement is running and bit 0 indicates image-register update is running.
+    </p>
+    <pre><code>enum {
+    BMP280_STATUS_MEASURING = 1u &lt;&lt; 3,
+    BMP280_STATUS_IM_UPDATE = 1u &lt;&lt; 0
+};
+
+bool bmp280_is_measuring(uint8_t status)
+{
+    return (status &amp; BMP280_STATUS_MEASURING) == BMP280_STATUS_MEASURING;
+}</code></pre>
+
+    <h2>Combining Packed Bytes</h2>
+    <p>
+      A 20-bit pressure value can be stored across three 8-bit registers: MSB, LSB, and the upper nibble of
+      XLSB. Shift each byte into its final position, mask when a byte contains unused bits, then OR the fields
+      together.
+    </p>
+    <pre><code>uint32_t raw_pressure =
+    ((uint32_t)msb &lt;&lt; 12) |
+    ((uint32_t)lsb &lt;&lt; 4) |
+    ((uint32_t)xlsb &gt;&gt; 4);</code></pre>
+
+    <div class="box warn">
+      <p>
+        Cast before shifting when the source is a byte but the result is wider. This prevents the expression
+        from depending on small-type promotion details and makes the intended 32-bit assembly obvious.
+      </p>
+    </div>
+
+    <h2>Review Checklist</h2>
+    <ul>
+      <li>Do mask names match datasheet field names?</li>
+      <li>Does the function ignore unrelated bits?</li>
+      <li>Are bytes cast to the output width before large shifts?</li>
+      <li>Are unused bits masked or shifted away before combining?</li>
+      <li>Do tests include unrelated status bits and nonzero unused bits?</li>
+    </ul>
+
+    <h2>Sources</h2>
+    <ul>
+      <li><a href="https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bmp280-ds001.pdf">Bosch Sensortec BMP280 data sheet</a></li>
+      <li><a href="https://docs.cppreference.com/w/c/language/operator_precedence.html">cppreference: C operator precedence</a></li>
+      <li><a href="https://www.cppreference.com/w/c/language/conversion.html">cppreference: C implicit conversions</a></li>
+    </ul>
+  </main>
+</body>
+</html>

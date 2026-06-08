@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0003 - Real Sensor Registers</title>
+  <style>
+    :root {
+      --ink: #111827;
+      --muted: #5b6472;
+      --line: #d7dee8;
+      --panel: #f7f9fc;
+      --accent: #0f766e;
+      --accent-soft: #e0f4ef;
+      --bad: #9f1239;
+      --good: #166534;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: white;
+      font: 16px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 36px 24px 56px;
+    }
+    header {
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--line);
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 38px;
+      line-height: 1.08;
+    }
+    h2 {
+      margin: 30px 0 10px;
+      font-size: 23px;
+    }
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 17px;
+    }
+    p, li { max-width: 78ch; }
+    .lede {
+      color: var(--muted);
+      font-size: 18px;
+      max-width: 74ch;
+    }
+    .panel {
+      margin: 16px 0;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    .bit-grid {
+      display: grid;
+      grid-template-columns: 120px repeat(5, minmax(88px, 1fr));
+      gap: 6px;
+      align-items: stretch;
+      margin: 16px 0;
+      overflow-x: auto;
+    }
+    .bit-label,
+    .bit-cell {
+      min-height: 54px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+    }
+    .bit-label {
+      font-weight: 700;
+      background: white;
+    }
+    .bit-cell strong {
+      display: block;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .bit-cell span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .bit-on {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .math-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+    }
+    .math-table th,
+    .math-table td {
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    .math-table th {
+      background: var(--panel);
+    }
+    .callout {
+      margin: 16px 0;
+      padding: 14px 16px;
+      border-left: 5px solid var(--accent);
+      background: var(--accent-soft);
+    }
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+    pre {
+      overflow-x: auto;
+      padding: 16px;
+      border-radius: 8px;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+    button {
+      margin: 4px 6px 4px 0;
+      padding: 8px 11px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      background: white;
+      color: var(--accent);
+      font: inherit;
+      cursor: pointer;
+    }
+    button:hover, button:focus {
+      background: var(--accent-soft);
+      outline: none;
+    }
+    .feedback {
+      min-height: 28px;
+      margin-top: 8px;
+      font-weight: 650;
+    }
+    .ok { color: var(--good); }
+    .no { color: var(--bad); }
+    a { color: #0f766e; }
+    @media print {
+      main { padding: 18mm; }
+      button, .feedback { display: none; }
+      .panel, .callout, pre { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Lesson 0003: A Real Sensor Register Slice</h1>
+      <p class="lede">
+        This is the same C muscle as lesson 2, but in a shape you would actually meet in a pressure-sensor
+        driver: status bits plus a packed 20-bit ADC sample spread across three bytes.
+      </p>
+    </header>
+
+    <section>
+      <h2>The Datasheet Shape</h2>
+      <p>
+        A BMP280-style pressure sensor has a status register where bit 3 means a conversion is running and
+        bit 0 means internal image-register update is running. These are independent bits, so whole-register
+        equality is the wrong habit.
+      </p>
+      <pre><code>enum {
+    BMP280_STATUS_MEASURING = 1u &lt;&lt; 3,
+    BMP280_STATUS_IM_UPDATE = 1u &lt;&lt; 0
+};</code></pre>
+      <div class="callout">
+        <strong>Real-driver habit:</strong> name the datasheet bit, mask the register, compare the masked
+        result.
+      </div>
+    </section>
+
+    <section>
+      <h2>The Packed Measurement Shape</h2>
+      <p>
+        The raw pressure reading is a 20-bit value. It arrives as three bytes:
+      </p>
+      <ul>
+        <li><code>press_msb</code>: pressure bits 19..12</li>
+        <li><code>press_lsb</code>: pressure bits 11..4</li>
+        <li><code>press_xlsb</code>: pressure bits 3..0 live in the upper nibble</li>
+      </ul>
+      <p>
+        So the assembly pattern is:
+      </p>
+      <pre><code>((uint32_t)press_msb &lt;&lt; 12) |
+((uint32_t)press_lsb &lt;&lt; 4)  |
+((uint32_t)press_xlsb &gt;&gt; 4)</code></pre>
+      <p>
+        The third byte is shifted right because only its upper four bits belong to the 20-bit sample.
+      </p>
+    </section>
+
+    <section>
+      <h2>Visual Example: <code>0x12 0x34 0x50</code></h2>
+      <p>
+        The test case <code>bmp280_raw_pressure(0x12, 0x34, 0x50)</code> should produce
+        <code>0x12345</code>. Think of the final 20-bit value as five hex digits. Each hex digit is four
+        bits.
+      </p>
+
+      <div class="bit-grid" aria-label="20-bit raw pressure field visualized as five hex nibbles">
+        <div class="bit-label">final field</div>
+        <div class="bit-cell bit-on"><strong>1</strong><span>bits 19..16</span></div>
+        <div class="bit-cell bit-on"><strong>2</strong><span>bits 15..12</span></div>
+        <div class="bit-cell bit-on"><strong>3</strong><span>bits 11..8</span></div>
+        <div class="bit-cell bit-on"><strong>4</strong><span>bits 7..4</span></div>
+        <div class="bit-cell bit-on"><strong>5</strong><span>bits 3..0</span></div>
+
+        <div class="bit-label">source</div>
+        <div class="bit-cell"><strong>press_msb</strong><span>0x12 supplies 1 and 2</span></div>
+        <div class="bit-cell"><strong>press_msb</strong><span>shift left 12</span></div>
+        <div class="bit-cell"><strong>press_lsb</strong><span>0x34 supplies 3 and 4</span></div>
+        <div class="bit-cell"><strong>press_lsb</strong><span>shift left 4</span></div>
+        <div class="bit-cell"><strong>press_xlsb</strong><span>0x50 supplies 5 only</span></div>
+      </div>
+
+      <table class="math-table">
+        <thead>
+          <tr>
+            <th>Input byte</th>
+            <th>Operation</th>
+            <th>Contribution</th>
+            <th>Why</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>press_msb = 0x12</code></td>
+            <td><code>((uint32_t)press_msb &lt;&lt; 12)</code></td>
+            <td><code>0x12000</code></td>
+            <td>Moves the most significant byte into bits 19..12.</td>
+          </tr>
+          <tr>
+            <td><code>press_lsb = 0x34</code></td>
+            <td><code>((uint32_t)press_lsb &lt;&lt; 4)</code></td>
+            <td><code>0x00340</code></td>
+            <td>Moves the next byte into bits 11..4.</td>
+          </tr>
+          <tr>
+            <td><code>press_xlsb = 0x50</code></td>
+            <td><code>((uint32_t)press_xlsb &gt;&gt; 4)</code></td>
+            <td><code>0x00005</code></td>
+            <td>Drops the unused lower nibble and moves the upper nibble into bits 3..0.</td>
+          </tr>
+          <tr>
+            <td>combined with <code>|</code></td>
+            <td><code>0x12000 | 0x00340 | 0x00005</code></td>
+            <td><code>0x12345</code></td>
+            <td>OR joins non-overlapping fields into one raw sample.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout">
+        <strong>No clamping in this helper:</strong> <code>BMP280_RAW_PRESSURE_MAX</code> is the largest
+        possible 20-bit value, <code>0xfffff</code>. The decoder should return the assembled raw value. If
+        all input bytes are <code>0xff</code>, the assembled value naturally equals the max because
+        <code>0xfff...</code> fills every 20-bit field position.
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Quick Check</h2>
+      <h3>1. If status is <code>0b00001001</code>, is the sensor measuring?</h3>
+      <button data-target="q1" data-answer="right" data-feedback="Correct. Bit 3 is set; bit 0 being set too does not matter for this question.">Yes</button>
+      <button data-target="q1" data-answer="wrong" data-feedback="No. Whole-register equality would mislead you here; bit 3 is set.">No</button>
+      <div class="feedback" id="q1"></div>
+
+      <h3>2. Why cast <code>press_msb</code> to <code>uint32_t</code> before shifting?</h3>
+      <button data-target="q2" data-answer="wrong" data-feedback="No. Volatile controls hardware-visible access. This is about expression width and review clarity.">To make the read volatile</button>
+      <button data-target="q2" data-answer="right" data-feedback="Correct. The final assembled sample is wider than one byte, so the expression should be built at that width.">To assemble the wider 20-bit value deliberately</button>
+      <button data-target="q2" data-answer="wrong" data-feedback="No. The cast does not validate whether the sensor value is physically plausible.">To check the pressure range</button>
+      <div class="feedback" id="q2"></div>
+    </section>
+
+    <section>
+      <h2>Practice</h2>
+      <p>
+        Open <code>exercises/0003-real-sensor-registers/</code>. Implement the status helpers and the raw
+        pressure combiner.
+      </p>
+      <ol>
+        <li>Use the named BMP280-style masks and shifts.</li>
+        <li>Ignore unrelated status bits.</li>
+        <li>Cast bytes to <code>uint32_t</code> before shifting them into the 20-bit sample.</li>
+        <li>Run <code>rtk make test</code>.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Sources</h2>
+      <ul>
+        <li><a href="https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bmp280-ds001.pdf">Bosch Sensortec BMP280 data sheet</a></li>
+        <li><a href="https://docs.cppreference.com/w/c/language/operator_precedence.html">cppreference: C operator precedence</a></li>
+        <li><a href="https://www.cppreference.com/w/c/language/conversion.html">cppreference: C implicit conversions</a></li>
+      </ul>
+      <p>
+        Ask follow-up questions if any field layout feels odd. Datasheets are dense; the skill is translating
+        one small table into one boring, obviously correct helper at a time.
+      </p>
+    </section>
+  </main>
+
+  <script>
+    document.querySelectorAll("button[data-target]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const node = document.getElementById(button.dataset.target);
+        node.textContent = button.dataset.feedback;
+        node.className = "feedback " + (button.dataset.answer === "right" ? "ok" : "no");
+      });
+    });
+  </script>
+</body>
+</html>

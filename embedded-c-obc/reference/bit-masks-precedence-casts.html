@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>C Bit Masks, Precedence, And Casts - Quick Reference</title>
+  <style>
+    :root {
+      --ink: #14212b;
+      --muted: #52606d;
+      --line: #d4dce7;
+      --panel: #f7f9fc;
+      --accent: #0f766e;
+      --warn: #9a3412;
+      --bad: #9f1239;
+    }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font: 16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: white;
+    }
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 32px 24px 48px;
+    }
+    h1 {
+      margin: 0 0 12px;
+      padding-bottom: 12px;
+      border-bottom: 3px solid var(--accent);
+      font-size: 34px;
+      line-height: 1.1;
+    }
+    h2 {
+      margin: 28px 0 10px;
+      font-size: 21px;
+    }
+    p, li {
+      max-width: 78ch;
+    }
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+    pre {
+      overflow-x: auto;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
+    }
+    .box {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    .good { border-left: 5px solid var(--accent); }
+    .warn { border-left: 5px solid var(--warn); }
+    .bad { border-left: 5px solid var(--bad); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--panel); }
+    @media print {
+      main { padding: 18mm; }
+      .box, pre, table { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>C Bit Masks, Precedence, And Casts</h1>
+    <p>
+      Firmware C often means extracting one bit or one field from a wider register, packet word, or status
+      value. The habit to build is: name the mask, parenthesize the mask operation, then cast deliberately
+      when narrowing.
+    </p>
+
+    <section class="grid">
+      <div class="box good">
+        <h2>Check One Bit</h2>
+        <pre><code>return (status &amp; RX_READY_MASK) == RX_READY_MASK;</code></pre>
+        <p>Use this when the mask names the exact bit or field pattern you expect.</p>
+      </div>
+      <div class="box bad">
+        <h2>Avoid Whole-Register Equality</h2>
+        <pre><code>return status == RX_READY_MASK;</code></pre>
+        <p>This fails when any unrelated status bit is also set.</p>
+      </div>
+    </section>
+
+    <h2>Precedence Trap</h2>
+    <pre><code>status &amp; mask == mask</code></pre>
+    <p>
+      In C, equality is grouped before bitwise AND. Write the grouping you mean:
+    </p>
+    <pre><code>(status &amp; mask) == mask</code></pre>
+
+    <h2>Mask Vocabulary</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Operation</th>
+          <th>Pattern</th>
+          <th>Example</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Set bit</td>
+          <td><code>value |= mask</code></td>
+          <td><code>control |= ENABLE_MASK;</code></td>
+        </tr>
+        <tr>
+          <td>Clear bit</td>
+          <td><code>value &amp;= ~mask</code></td>
+          <td><code>control &amp;= ~ENABLE_MASK;</code></td>
+        </tr>
+        <tr>
+          <td>Toggle bit</td>
+          <td><code>value ^= mask</code></td>
+          <td><code>flags ^= HEARTBEAT_MASK;</code></td>
+        </tr>
+        <tr>
+          <td>Extract field</td>
+          <td><code>(word &gt;&gt; shift) &amp; field_mask</code></td>
+          <td><code>(packet &gt;&gt; 8u) &amp; 0xffu</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Narrowing Casts</h2>
+    <div class="box warn">
+      <p>
+        If a register is <code>uint32_t</code> but the API returns <code>uint8_t</code>, make the narrowing
+        visible after masking:
+      </p>
+      <pre><code>return (uint8_t)(data &amp; DATA_LOW_BYTE_MASK);</code></pre>
+      <p>
+        This tells reviewers that losing the upper bits is intentional.
+      </p>
+    </div>
+
+    <h2>Flight-Firmware Review Questions</h2>
+    <ul>
+      <li>Does the mask name the register field being checked?</li>
+      <li>Would the check still work if unrelated status bits were set?</li>
+      <li>Are bitwise operations parenthesized before comparison?</li>
+      <li>Is any narrowing conversion explicit and justified by a prior mask?</li>
+    </ul>
+
+    <h2>Sources</h2>
+    <ul>
+      <li><a href="https://docs.cppreference.com/w/c/language/operator_precedence.html">cppreference: C operator precedence</a></li>
+      <li><a href="https://www.cppreference.com/w/c/language/conversion.html">cppreference: C implicit conversions</a></li>
+      <li><a href="https://wiki.sei.cmu.edu/confluence/display/c/INT02-C.%2BUnderstand%2Binteger%2Bconversion%2Brules">SEI CERT C INT02-C</a></li>
+    </ul>
+  </main>
+</body>
+</html>

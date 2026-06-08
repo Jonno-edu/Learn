@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0002 - Bit Masks, Precedence, And Casts</title>
+  <style>
+    :root {
+      --ink: #111827;
+      --muted: #5b6472;
+      --line: #d7dee8;
+      --panel: #f7f9fc;
+      --accent: #0f766e;
+      --accent-soft: #e0f4ef;
+      --bad: #9f1239;
+      --good: #166534;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: white;
+      font: 16px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 36px 24px 56px;
+    }
+    header {
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--line);
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 38px;
+      line-height: 1.08;
+    }
+    h2 {
+      margin: 30px 0 10px;
+      font-size: 23px;
+    }
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 17px;
+    }
+    p, li { max-width: 78ch; }
+    .lede {
+      color: var(--muted);
+      font-size: 18px;
+      max-width: 74ch;
+    }
+    .panel {
+      margin: 16px 0;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    .callout {
+      margin: 16px 0;
+      padding: 14px 16px;
+      border-left: 5px solid var(--accent);
+      background: var(--accent-soft);
+    }
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+    pre {
+      overflow-x: auto;
+      padding: 16px;
+      border-radius: 8px;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+    button {
+      margin: 4px 6px 4px 0;
+      padding: 8px 11px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      background: white;
+      color: var(--accent);
+      font: inherit;
+      cursor: pointer;
+    }
+    button:hover, button:focus {
+      background: var(--accent-soft);
+      outline: none;
+    }
+    .feedback {
+      min-height: 28px;
+      margin-top: 8px;
+      font-weight: 650;
+    }
+    .ok { color: var(--good); }
+    .no { color: var(--bad); }
+    a { color: #0f766e; }
+    @media print {
+      main { padding: 18mm; }
+      button, .feedback { display: none; }
+      .panel, .callout, pre { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Lesson 0002: Masks Before Meaning</h1>
+      <p class="lede">
+        Lesson 1 exposed the real gap: not firmware intent, but C expression mechanics. This lesson teaches
+        the expression pattern behind status bits, packet fields, and register-width-to-byte conversions.
+      </p>
+    </header>
+
+    <section>
+      <h2>The One Thing</h2>
+      <p>
+        When a wider integer contains several independent fields, never compare the whole value unless the
+        whole value is the contract. First isolate the field with a mask. Then compare or cast the isolated
+        result.
+      </p>
+      <div class="callout">
+        <strong>Driver habit:</strong> <code>(value &amp; MASK) == MASK</code> checks whether the named bits
+        are set while ignoring unrelated bits.
+      </div>
+    </section>
+
+    <section>
+      <h2>The Precedence Trap</h2>
+      <p>
+        This expression looks plausible:
+      </p>
+      <pre><code>status &amp; RX_READY_MASK == RX_READY_MASK</code></pre>
+      <p>
+        But C groups equality before bitwise AND here, so the compiler reads it as:
+      </p>
+      <pre><code>status &amp; (RX_READY_MASK == RX_READY_MASK)</code></pre>
+      <p>
+        The fix is not memorizing the whole precedence table. The fix is to parenthesize the bit operation
+        every time you compare it:
+      </p>
+      <pre><code>(status &amp; RX_READY_MASK) == RX_READY_MASK</code></pre>
+    </section>
+
+    <section>
+      <h2>Whole Register Equality Fails</h2>
+      <p>
+        Suppose bit 0 means RX ready and bit 2 means overrun. If the status is <code>0b00000101</code>, RX is
+        ready and overrun is also set.
+      </p>
+      <pre><code>status == RX_READY_MASK        /* false: status is 5, mask is 1 */
+(status &amp; RX_READY_MASK) != 0 /* true: bit 0 is set */</code></pre>
+    </section>
+
+    <section>
+      <h2>Explicit Narrowing</h2>
+      <p>
+        A register or packet word may be <code>uint32_t</code>, while the field you return is only a byte.
+        Mask first, then cast:
+      </p>
+      <pre><code>return (uint8_t)(word &amp; LOW_BYTE_MASK);</code></pre>
+      <p>
+        The cast is not magic. It is documentation for reviewers: after the mask, losing upper bits is
+        intentional.
+      </p>
+    </section>
+
+    <section class="panel">
+      <h2>Quick Check</h2>
+      <h3>1. Which expression checks bit 3 while ignoring every other bit?</h3>
+      <button data-target="q1" data-answer="wrong" data-feedback="That only works when no unrelated bit is set.">status == BIT3_MASK</button>
+      <button data-target="q1" data-answer="right" data-feedback="Correct. Mask first, then compare the isolated bit.">(status &amp; BIT3_MASK) == BIT3_MASK</button>
+      <button data-target="q1" data-answer="wrong" data-feedback="That sets the bit in a value; it does not check the bit.">status | BIT3_MASK</button>
+      <div class="feedback" id="q1"></div>
+
+      <h3>2. Why write <code>(uint8_t)(word &amp; 0xffu)</code> instead of just returning <code>word</code>?</h3>
+      <button data-target="q2" data-answer="right" data-feedback="Correct. It says the low byte is the contract, and the narrowing is deliberate.">To make the intended low-byte extraction explicit</button>
+      <button data-target="q2" data-answer="wrong" data-feedback="No. The mask and cast do not make it volatile or atomic.">To force a hardware access</button>
+      <button data-target="q2" data-answer="wrong" data-feedback="No. It changes the value contract; it is not a speed hint.">To make the compiler optimize harder</button>
+      <div class="feedback" id="q2"></div>
+    </section>
+
+    <section>
+      <h2>Practice</h2>
+      <p>
+        Open <code>exercises/0002-bit-masks-precedence-casts/</code>. The tests include cases that lesson 1's
+        first attempts would not catch: unrelated status bits, grouped comparisons, and high bits in a packet
+        word.
+      </p>
+      <ol>
+        <li>Implement the three stub functions in <code>exercise.c</code>.</li>
+        <li>Use named masks and shifts. Avoid magic numbers inside the functions.</li>
+        <li>Run <code>rtk make test</code> from the exercise directory.</li>
+        <li>When it passes, explain which parentheses were required and why.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Sources</h2>
+      <ul>
+        <li><a href="https://docs.cppreference.com/w/c/language/operator_precedence.html">cppreference: C operator precedence</a></li>
+        <li><a href="https://www.cppreference.com/w/c/language/conversion.html">cppreference: C implicit conversions</a></li>
+        <li><a href="https://wiki.sei.cmu.edu/confluence/display/c/INT02-C.%2BUnderstand%2Binteger%2Bconversion%2Brules">SEI CERT C INT02-C</a></li>
+      </ul>
+      <p>
+        Ask follow-up questions as soon as an expression feels opaque. In firmware, being able to read a line
+        exactly is more important than being able to guess what it probably means.
+      </p>
+    </section>
+  </main>
+
+  <script>
+    document.querySelectorAll("button[data-target]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const node = document.getElementById(button.dataset.target);
+        node.textContent = button.dataset.feedback;
+        node.className = "feedback " + (button.dataset.answer === "right" ? "ok" : "no");
+      });
+    });
+  </script>
+</body>
+</html>
