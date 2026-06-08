@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Embedded C OBC Glossary</title>
+  <style>
+    :root {
+      --ink: #12202b;
+      --muted: #52606f;
+      --line: #d5dde8;
+      --panel: #f7f9fc;
+      --accent: #0f766e;
+    }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: white;
+      font: 16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 32px 24px 48px;
+    }
+    h1 {
+      margin: 0 0 12px;
+      padding-bottom: 12px;
+      border-bottom: 3px solid var(--accent);
+      font-size: 34px;
+      line-height: 1.1;
+    }
+    h2 {
+      margin: 28px 0 10px;
+      font-size: 21px;
+    }
+    dl {
+      display: grid;
+      grid-template-columns: minmax(150px, 240px) 1fr;
+      gap: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    dt, dd {
+      margin: 0;
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    dt {
+      background: var(--panel);
+      font-weight: 700;
+    }
+    dd {
+      color: var(--muted);
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: var(--ink);
+    }
+    @media (max-width: 700px) {
+      dl { display: block; }
+      dt { border-bottom: 0; }
+      dd { border-bottom: 1px solid var(--line); }
+    }
+    @media print {
+      main { padding: 18mm; }
+      dl { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Embedded C OBC Glossary</h1>
+    <p>Short definitions for the terms introduced so far. This is the fast lookup page, not a full lesson.</p>
+
+    <h2>Access And Hardware</h2>
+    <dl>
+      <dt><code>volatile</code></dt>
+      <dd>A qualifier for objects that may change outside normal C code. Use for memory-mapped hardware registers. Not a synchronization primitive.</dd>
+      <dt>memory-mapped register</dt>
+      <dd>A hardware register exposed at an address that C code can read or write like memory.</dd>
+      <dt>register field</dt>
+      <dd>A subset of bits inside a register with one meaning, such as bit 3 meaning sensor measuring.</dd>
+      <dt>raw value</dt>
+      <dd>The direct decoded value from hardware before calibration, scaling, filtering, or unit conversion.</dd>
+    </dl>
+
+    <h2>Bit Operations</h2>
+    <dl>
+      <dt>bit</dt>
+      <dd>One binary digit, either 0 or 1.</dd>
+      <dt>nibble</dt>
+      <dd>Four bits. One hexadecimal digit.</dd>
+      <dt>byte</dt>
+      <dd>Eight bits. Usually two hexadecimal digits.</dd>
+      <dt>mask</dt>
+      <dd>A value used to isolate, set, clear, or test specific bits.</dd>
+      <dt><code>&amp;</code></dt>
+      <dd>Bitwise AND. Keeps only bits that are 1 in both operands.</dd>
+      <dt><code>|</code></dt>
+      <dd>Bitwise OR. Combines bits, often to assemble non-overlapping fields.</dd>
+      <dt><code>&lt;&lt;</code></dt>
+      <dd>Left shift. Moves bits toward more significant positions.</dd>
+      <dt><code>&gt;&gt;</code></dt>
+      <dd>Right shift. Moves bits toward less significant positions.</dd>
+      <dt>whole-register equality</dt>
+      <dd>Comparing an entire register to one bit value. Usually wrong for status registers with independent bits.</dd>
+    </dl>
+
+    <h2>C Expression Mechanics</h2>
+    <dl>
+      <dt>operator precedence</dt>
+      <dd>The rules that decide expression grouping. Write <code>(status &amp; mask) == mask</code>, not <code>status &amp; mask == mask</code>.</dd>
+      <dt>cast</dt>
+      <dd>An explicit conversion such as <code>(uint8_t)value</code>. It should communicate intent.</dd>
+      <dt>narrowing</dt>
+      <dd>Converting from a wider type to a smaller type, such as <code>uint32_t</code> to <code>uint8_t</code>.</dd>
+      <dt>integer promotion</dt>
+      <dd>C's rule that small integer types are often promoted before arithmetic.</dd>
+      <dt>fixed-width integer</dt>
+      <dd>A type from <code>&lt;stdint.h&gt;</code> with explicit size, such as <code>uint8_t</code> or <code>uint32_t</code>.</dd>
+      <dt>two's complement</dt>
+      <dd>The signed integer representation used by modern C targets. A set top bit indicates a negative value.</dd>
+      <dt><code>size_t</code></dt>
+      <dd>An unsigned type used for object sizes and array lengths.</dd>
+      <dt>bounds check</dt>
+      <dd>A check that proves an index or copy length stays inside the available buffer before accessing memory.</dd>
+      <dt>checksum</dt>
+      <dd>A small computed value carried with a packet to catch corrupted or malformed data.</dd>
+      <dt>payload</dt>
+      <dd>The data part of a packet after headers and length fields.</dd>
+      <dt>frame</dt>
+      <dd>The complete on-wire packet bytes, including header, metadata, payload, and checksum.</dd>
+    </dl>
+  </main>
+</body>
+</html>

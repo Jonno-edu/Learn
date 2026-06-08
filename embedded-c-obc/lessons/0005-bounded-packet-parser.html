@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0005 - Bounded Packet Parser</title>
+  <style>
+    :root {
+      --ink: #111827;
+      --muted: #5b6472;
+      --line: #d7dee8;
+      --panel: #f7f9fc;
+      --accent: #0f766e;
+      --accent-soft: #e0f4ef;
+      --bad: #9f1239;
+      --good: #166534;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: white;
+      font: 16px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 36px 24px 56px;
+    }
+    header {
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--line);
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 38px;
+      line-height: 1.08;
+    }
+    h2 {
+      margin: 30px 0 10px;
+      font-size: 23px;
+    }
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 17px;
+    }
+    p, li { max-width: 78ch; }
+    .lede {
+      color: var(--muted);
+      font-size: 18px;
+      max-width: 74ch;
+    }
+    .panel {
+      margin: 16px 0;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    .callout {
+      margin: 16px 0;
+      padding: 14px 16px;
+      border-left: 5px solid var(--accent);
+      background: var(--accent-soft);
+    }
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+    pre {
+      overflow-x: auto;
+      padding: 16px;
+      border-radius: 8px;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--panel); }
+    button {
+      margin: 4px 6px 4px 0;
+      padding: 8px 11px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      background: white;
+      color: var(--accent);
+      font: inherit;
+      cursor: pointer;
+    }
+    button:hover, button:focus {
+      background: var(--accent-soft);
+      outline: none;
+    }
+    .feedback {
+      min-height: 28px;
+      margin-top: 8px;
+      font-weight: 650;
+    }
+    .ok { color: var(--good); }
+    .no { color: var(--bad); }
+    a { color: #0f766e; }
+    @media print {
+      main { padding: 18mm; }
+      button, .feedback { display: none; }
+      .panel, .callout, pre, table { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Lesson 0005: Bounded Packet Parser</h1>
+      <p class="lede">
+        Comms code is where byte-level C meets reliability. This lesson turns your mask/shift muscle into a
+        defensive parser for a small OBC-style binary frame.
+      </p>
+    </header>
+
+    <section>
+      <h2>The Frame Contract</h2>
+      <p>
+        The frame is a tiny training protocol:
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Offset</th>
+            <th>Field</th>
+            <th>Example</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><code>0</code></td><td>start byte 0</td><td><code>0xa5</code></td></tr>
+          <tr><td><code>1</code></td><td>start byte 1</td><td><code>0x5a</code></td></tr>
+          <tr><td><code>2</code></td><td>message ID</td><td><code>0x10</code></td></tr>
+          <tr><td><code>3</code></td><td>payload length</td><td><code>0x03</code></td></tr>
+          <tr><td><code>4..6</code></td><td>payload</td><td><code>0x01 0x02 0x03</code></td></tr>
+          <tr><td><code>7</code></td><td>checksum</td><td><code>0x19</code></td></tr>
+        </tbody>
+      </table>
+      <p>
+        Checksum is the low byte of the sum of <code>msg_id</code>, <code>payload_len</code>, and every
+        payload byte. For the example: <code>0x10 + 0x03 + 0x01 + 0x02 + 0x03 = 0x19</code>.
+      </p>
+    </section>
+
+    <section>
+      <h2>The One Thing</h2>
+      <p>
+        Before reading <code>frame[i]</code>, prove <code>i</code> is inside the buffer. Before copying
+        payload bytes, prove the payload length fits both the input frame and the output packet.
+      </p>
+      <div class="callout">
+        <strong>Parser habit:</strong> validate structure first, write output last. A rejected frame should
+        not leave a half-updated packet behind.
+      </div>
+    </section>
+
+    <section>
+      <h2>Bounds Before Bytes</h2>
+      <pre><code>if (frame_len &lt; MIN_FRAME_SIZE) {
+    return false;
+}
+
+if (frame[0] != SOF0 || frame[1] != SOF1) {
+    return false;
+}</code></pre>
+      <p>
+        The minimum length check comes before reading <code>frame[0]</code> or <code>frame[1]</code>. That is
+        the pattern to repeat throughout the parser.
+      </p>
+    </section>
+
+    <section class="panel">
+      <h2>Quick Check</h2>
+      <h3>1. What should a parser check before reading <code>frame[3]</code>?</h3>
+      <button data-target="q1" data-answer="wrong" data-feedback="No. Start bytes matter, but they do not prove offset 3 exists.">The start bytes</button>
+      <button data-target="q1" data-answer="right" data-feedback="Correct. The length must prove offset 3 is inside the buffer.">That the frame length is at least 4</button>
+      <button data-target="q1" data-answer="wrong" data-feedback="No. The checksum is later; you need bounds before reading bytes.">The checksum</button>
+      <div class="feedback" id="q1"></div>
+
+      <h3>2. When should the output packet be written?</h3>
+      <button data-target="q2" data-answer="wrong" data-feedback="No. That can leave stale or partial output after a rejected frame.">As each field is discovered</button>
+      <button data-target="q2" data-answer="right" data-feedback="Correct. Validate first, then commit output once the whole frame is trusted.">After length and checksum validation</button>
+      <button data-target="q2" data-answer="wrong" data-feedback="No. A checksum function should not mutate parser output.">Inside the checksum loop</button>
+      <div class="feedback" id="q2"></div>
+    </section>
+
+    <section>
+      <h2>Practice</h2>
+      <p>
+        Open <code>exercises/0005-bounded-packet-parser/</code>. Implement a packet checksum helper and a
+        defensive frame parser.
+      </p>
+      <ol>
+        <li>Use <code>size_t</code> for lengths and indexes.</li>
+        <li>Reject null pointers.</li>
+        <li>Check bounds before every indexed read or payload copy.</li>
+        <li>Verify checksum before writing the output packet.</li>
+        <li>Run <code>rtk make test</code>.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Sources</h2>
+      <ul>
+        <li><a href="https://en.cppreference.com/w/c/language/array">cppreference: C array declaration</a></li>
+        <li><a href="https://en.cppreference.com/w/c/language/pointer">cppreference: C pointer declaration</a></li>
+        <li><a href="https://wiki.sei.cmu.edu/confluence/x/wtYxBQ">SEI CERT C ARR30-C</a></li>
+      </ul>
+    </section>
+  </main>
+
+  <script>
+    document.querySelectorAll("button[data-target]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const node = document.getElementById(button.dataset.target);
+        node.textContent = button.dataset.feedback;
+        node.className = "feedback " + (button.dataset.answer === "right" ? "ok" : "no");
+      });
+    });
+  </script>
+</body>
+</html>

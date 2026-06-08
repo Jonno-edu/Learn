@@ -8,8 +8,16 @@
   Compact table showing why expressions such as `status & mask == mask` are parsed differently than many C programmers expect. Use for: parenthesizing bit tests and reading compiler precedence warnings.
 - [cppreference: C implicit conversions](https://www.cppreference.com/w/c/language/conversion.html)
   Reference for integer promotions, boolean conversion, and narrowing conversions. Use for: explaining why returning a `uint32_t` expression from a `uint8_t` function truncates, and when explicit casts improve intent.
+- [cppreference: C array declaration](https://en.cppreference.com/w/c/language/array)
+  Reference for array objects and element access. Use for: payload buffers, fixed frame layouts, and array-to-pointer behavior in function parameters.
+- [cppreference: C pointer declaration](https://en.cppreference.com/w/c/language/pointer)
+  Reference for pointer declarations and pointer targets. Use for: parsing functions that receive byte buffers and output structs.
 - [SEI CERT C INT02-C: Understand integer conversion rules](https://wiki.sei.cmu.edu/confluence/display/c/INT02-C.%2BUnderstand%2Binteger%2Bconversion%2Brules)
   Secure-coding guidance on C integer conversions. Use for: review posture around mixed signedness, narrowing, and firmware parser arithmetic.
+- [SEI CERT C INT32-C: Ensure operations on signed integers do not result in overflow](https://wiki.sei.cmu.edu/confluence/display/c/INT32-C.%2BEnsure%2Bthat%2Boperations%2Bon%2Bsigned%2Bintegers%2Bdo%2Bnot%2Bresult%2Bin%2Boverflow)
+  Secure-coding rule for signed overflow. Use for: scaling raw sensor values, counters, and intermediate arithmetic in flight code.
+- [SEI CERT C ARR30-C: Do not form or use out-of-bounds pointers or array subscripts](https://wiki.sei.cmu.edu/confluence/x/wtYxBQ)
+  Secure-coding rule for array bounds. Use for: packet parsing, payload copies, and defensive checks before indexing buffers.
 - [SEI CERT C Coding Standard collection](https://www.sei.cmu.edu/library/sei-cert-c-and-c-coding-standards/)
   Secure C rules and recommendations from CMU SEI. Use for: undefined behavior, unsafe conversions, object lifetime, defensive APIs, and review checklists.
 - [FreeRTOS task notification API reference](https://freertos.org/Documentation/02-Kernel/04-API-references/05-Direct-to-task-notifications/00-RTOS-task-notifications)

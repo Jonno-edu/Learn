@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0004 - Signed Sensor Values</title>
+  <style>
+    :root {
+      --ink: #111827;
+      --muted: #5b6472;
+      --line: #d7dee8;
+      --panel: #f7f9fc;
+      --accent: #0f766e;
+      --accent-soft: #e0f4ef;
+      --bad: #9f1239;
+      --good: #166534;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: white;
+      font: 16px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 36px 24px 56px;
+    }
+    header {
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--line);
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 38px;
+      line-height: 1.08;
+    }
+    h2 {
+      margin: 30px 0 10px;
+      font-size: 23px;
+    }
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 17px;
+    }
+    p, li { max-width: 78ch; }
+    .lede {
+      color: var(--muted);
+      font-size: 18px;
+      max-width: 74ch;
+    }
+    .panel {
+      margin: 16px 0;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    .callout {
+      margin: 16px 0;
+      padding: 14px 16px;
+      border-left: 5px solid var(--accent);
+      background: var(--accent-soft);
+    }
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+    pre {
+      overflow-x: auto;
+      padding: 16px;
+      border-radius: 8px;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--panel); }
+    button {
+      margin: 4px 6px 4px 0;
+      padding: 8px 11px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      background: white;
+      color: var(--accent);
+      font: inherit;
+      cursor: pointer;
+    }
+    button:hover, button:focus {
+      background: var(--accent-soft);
+      outline: none;
+    }
+    .feedback {
+      min-height: 28px;
+      margin-top: 8px;
+      font-weight: 650;
+    }
+    .ok { color: var(--good); }
+    .no { color: var(--bad); }
+    a { color: #0f766e; }
+    @media print {
+      main { padding: 18mm; }
+      button, .feedback { display: none; }
+      .panel, .callout, pre, table { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Lesson 0004: Signed Sensor Values</h1>
+      <p class="lede">
+        Many sensors return signed two-byte values. The skill is to combine bytes as an unsigned pattern,
+        then interpret that exact 16-bit pattern as a signed value, then scale using a wide enough type.
+      </p>
+    </header>
+
+    <section>
+      <h2>The One Thing</h2>
+      <p>
+        Byte assembly and signed interpretation are separate steps. First build the 16-bit pattern. Then
+        convert that pattern into the signed sensor count.
+      </p>
+      <pre><code>uint16_t raw = ((uint16_t)msb &lt;&lt; 8) | (uint16_t)lsb;
+int16_t counts = (int16_t)raw;</code></pre>
+      <div class="callout">
+        <strong>Driver habit:</strong> preserve the exact bit pattern first. Apply signed meaning after the
+        full-width raw pattern exists.
+      </div>
+    </section>
+
+    <section>
+      <h2>Why <code>0xff38</code> Is Negative</h2>
+      <p>
+        In a signed 16-bit two's-complement value, bit 15 is the sign bit. If it is set, the value is
+        negative.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Bytes</th>
+            <th>16-bit pattern</th>
+            <th>Signed meaning</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>0x00 0x64</code></td>
+            <td><code>0x0064</code></td>
+            <td><code>100</code></td>
+          </tr>
+          <tr>
+            <td><code>0xff 0x38</code></td>
+            <td><code>0xff38</code></td>
+            <td><code>-200</code></td>
+          </tr>
+          <tr>
+            <td><code>0x80 0x00</code></td>
+            <td><code>0x8000</code></td>
+            <td><code>-32768</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Scaling Without Overflow</h2>
+      <p>
+        If one count equals 61 milli-g, multiply in a wider signed type before narrowing or returning:
+      </p>
+      <pre><code>int32_t milli_g = (int32_t)counts * 61;</code></pre>
+      <p>
+        This avoids doing the multiplication in a type that may be too small and tells reviewers the
+        intermediate range was considered.
+      </p>
+    </section>
+
+    <section class="panel">
+      <h2>Quick Check</h2>
+      <h3>1. Which step should happen first?</h3>
+      <button data-target="q1" data-answer="right" data-feedback="Correct. Build the exact 16-bit pattern first, then interpret it as signed.">Combine bytes into a 16-bit raw pattern</button>
+      <button data-target="q1" data-answer="wrong" data-feedback="Not first. Each byte alone does not contain the full signed value.">Cast each byte to int8_t</button>
+      <button data-target="q1" data-answer="wrong" data-feedback="No. Scaling before decoding mixes physical units with representation.">Scale to milli-g</button>
+      <div class="feedback" id="q1"></div>
+
+      <h3>2. Why use <code>int32_t</code> for scaled milli-g?</h3>
+      <button data-target="q2" data-answer="wrong" data-feedback="No. It does not make the value more accurate; it gives arithmetic more range.">More precision</button>
+      <button data-target="q2" data-answer="right" data-feedback="Correct. The scaled intermediate can exceed int16_t range.">More range for the multiplication</button>
+      <button data-target="q2" data-answer="wrong" data-feedback="No. Volatile is unrelated to scaling arithmetic.">To force a hardware read</button>
+      <div class="feedback" id="q2"></div>
+    </section>
+
+    <section>
+      <h2>Practice</h2>
+      <p>
+        Open <code>exercises/0004-signed-sensor-values/</code>. Implement signed 16-bit accelerometer decoding
+        and integer scaling to milli-g.
+      </p>
+      <ol>
+        <li>Combine MSB and LSB into a <code>uint16_t</code> raw pattern.</li>
+        <li>Convert the raw pattern to <code>int16_t</code>.</li>
+        <li>Scale counts to milli-g using <code>int32_t</code> arithmetic.</li>
+        <li>Run <code>rtk make test</code>.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Sources</h2>
+      <ul>
+        <li><a href="https://www.cppreference.com/w/c/language/conversion.html">cppreference: C implicit conversions</a></li>
+        <li><a href="https://wiki.sei.cmu.edu/confluence/display/c/INT02-C.%2BUnderstand%2Binteger%2Bconversion%2Brules">SEI CERT C INT02-C</a></li>
+        <li><a href="https://wiki.sei.cmu.edu/confluence/display/c/INT32-C.%2BEnsure%2Bthat%2Boperations%2Bon%2Bsigned%2Bintegers%2Bdo%2Bnot%2Bresult%2Bin%2Boverflow">SEI CERT C INT32-C</a></li>
+      </ul>
+    </section>
+  </main>
+
+  <script>
+    document.querySelectorAll("button[data-target]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const node = document.getElementById(button.dataset.target);
+        node.textContent = button.dataset.feedback;
+        node.className = "feedback " + (button.dataset.answer === "right" ? "ok" : "no");
+      });
+    });
+  </script>
+</body>
+</html>
