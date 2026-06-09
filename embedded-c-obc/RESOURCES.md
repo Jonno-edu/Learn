@@ -8,10 +8,18 @@
   Compact table showing why expressions such as `status & mask == mask` are parsed differently than many C programmers expect. Use for: parenthesizing bit tests and reading compiler precedence warnings.
 - [cppreference: C implicit conversions](https://www.cppreference.com/w/c/language/conversion.html)
   Reference for integer promotions, boolean conversion, and narrowing conversions. Use for: explaining why returning a `uint32_t` expression from a `uint8_t` function truncates, and when explicit casts improve intent.
+- [cppreference: C fixed-width integer types](https://en.cppreference.com/c/types/integer)
+  Reference for `<stdint.h>` exact-width, least-width, fast-width, max-width, and pointer-capable integer typedefs. Use for: choosing `uint8_t`, `uint16_t`, `uint32_t`, `int16_t`, and related embedded data types.
+- [cppreference: C size_t](https://en.cppreference.com/c/types/size_t)
+  Reference for `size_t` as the unsigned result type of `sizeof` and a normal type for object sizes, array indexes, and loop counts. Use for: buffer lengths and parser indexes.
 - [cppreference: C array declaration](https://en.cppreference.com/w/c/language/array)
   Reference for array objects and element access. Use for: payload buffers, fixed frame layouts, and array-to-pointer behavior in function parameters.
 - [cppreference: C pointer declaration](https://en.cppreference.com/w/c/language/pointer)
   Reference for pointer declarations and pointer targets. Use for: parsing functions that receive byte buffers and output structs.
+- [cppreference: C atomic types](https://en.cppreference.com/c/language/atomic)
+  Reference for C11 `_Atomic` objects and `<stdatomic.h>`. Use for: distinguishing atomics from `volatile` and from RTOS synchronization primitives.
+- [cppreference: C restrict qualifier](https://en.cppreference.com/c/language/restrict)
+  Reference for the C99 no-alias pointer qualifier. Use for: understanding optimizer promises and why `restrict` should be used only when the aliasing contract is provable.
 - [SEI CERT C INT02-C: Understand integer conversion rules](https://wiki.sei.cmu.edu/confluence/display/c/INT02-C.%2BUnderstand%2Binteger%2Bconversion%2Brules)
   Secure-coding guidance on C integer conversions. Use for: review posture around mixed signedness, narrowing, and firmware parser arithmetic.
 - [SEI CERT C INT32-C: Ensure operations on signed integers do not result in overflow](https://wiki.sei.cmu.edu/confluence/display/c/INT32-C.%2BEnsure%2Bthat%2Boperations%2Bon%2Bsigned%2Bintegers%2Bdo%2Bnot%2Bresult%2Bin%2Boverflow)

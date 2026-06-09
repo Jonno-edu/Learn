@@ -1,0 +1,1644 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0006 - Full Embedded C Toolbox v2</title>
+  <style>
+    :root {
+      --ink: #17202a;
+      --muted: #596677;
+      --line: #d7dee8;
+      --panel: #f7f9fc;
+      --panel2: #eef3f8;
+      --accent: #0f766e;
+      --accent-soft: #e0f4ef;
+      --warn: #9a3412;
+      --warn-soft: #fff3e8;
+      --good: #166534;
+      --good-soft: #ecfdf5;
+      --bad: #9f1239;
+      --bad-soft: #fff1f2;
+      --deep: #101827;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: white;
+      font: 16px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 36px 24px 64px;
+    }
+    header {
+      margin-bottom: 28px;
+      padding-bottom: 22px;
+      border-bottom: 1px solid var(--line);
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(32px, 5vw, 48px);
+      line-height: 1.05;
+      letter-spacing: -0.035em;
+    }
+    h2 {
+      margin: 36px 0 10px;
+      font-size: 26px;
+      line-height: 1.2;
+      letter-spacing: -0.01em;
+    }
+    h3 {
+      margin: 22px 0 8px;
+      font-size: 19px;
+    }
+    h4 {
+      margin: 16px 0 6px;
+      font-size: 16px;
+    }
+    p, li { max-width: 88ch; }
+    a { color: var(--accent); }
+    .lede {
+      color: var(--muted);
+      font-size: 18px;
+      max-width: 88ch;
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 9px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: var(--panel);
+      font-size: 13px;
+      font-weight: 650;
+    }
+    .toc {
+      margin: 20px 0 28px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+    }
+    .toc ul {
+      columns: 2;
+      margin: 8px 0 0;
+      padding-left: 20px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .grid3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .tile {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--panel);
+    }
+    .tile.white { background: white; }
+    .callout {
+      margin: 16px 0;
+      padding: 14px 16px;
+      border-left: 5px solid var(--accent);
+      background: var(--accent-soft);
+      border-radius: 0 9px 9px 0;
+    }
+    .warn {
+      border-left-color: var(--warn);
+      background: var(--warn-soft);
+    }
+    .badcall {
+      border-left-color: var(--bad);
+      background: var(--bad-soft);
+    }
+    .goodcall {
+      border-left-color: var(--good);
+      background: var(--good-soft);
+    }
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 0.94em;
+    }
+    code {
+      padding: 0.08em 0.25em;
+      border-radius: 4px;
+      background: #edf2f7;
+    }
+    pre code {
+      padding: 0;
+      background: transparent;
+    }
+    pre {
+      overflow-x: auto;
+      padding: 16px;
+      border-radius: 10px;
+      background: var(--deep);
+      color: #e5e7eb;
+      border: 1px solid #1f2937;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      font-size: 15px;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--panel); }
+    .compact th, .compact td { padding: 8px; }
+    .tag {
+      display: inline-block;
+      margin: 0 4px 4px 0;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: var(--panel2);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .quiz-section {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: white;
+      padding: 18px;
+      margin: 18px 0;
+    }
+    .question {
+      padding: 14px 0;
+      border-top: 1px solid var(--line);
+    }
+    .question:first-of-type { border-top: 0; }
+    button {
+      margin: 4px 6px 4px 0;
+      padding: 8px 11px;
+      border: 1px solid var(--accent);
+      border-radius: 7px;
+      background: white;
+      color: var(--accent);
+      font: inherit;
+      cursor: pointer;
+    }
+    button:hover, button:focus {
+      background: var(--accent-soft);
+      outline: none;
+    }
+    .feedback {
+      min-height: 28px;
+      margin-top: 8px;
+      font-weight: 650;
+    }
+    .ok { color: var(--good); }
+    .no { color: var(--bad); }
+    details {
+      margin: 12px 0;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    summary {
+      cursor: pointer;
+      font-weight: 750;
+    }
+    .summary-card {
+      border: 2px solid var(--accent);
+      background: var(--accent-soft);
+      padding: 18px;
+      border-radius: 12px;
+      margin: 18px 0;
+    }
+    .small { font-size: 14px; color: var(--muted); }
+    .split {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+      gap: 16px;
+      align-items: start;
+    }
+    @media (max-width: 860px) {
+      .grid, .grid3, .split { grid-template-columns: 1fr; }
+      .toc ul { columns: 1; }
+    }
+    @media print {
+      main { padding: 16mm; }
+      button, .feedback, .toc { display: none; }
+      .tile, .callout, pre, table, details, .quiz-section, .summary-card { break-inside: avoid; }
+      a[href]::after { content: " (" attr(href) ")"; font-size: 0.85em; color: var(--muted); }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Lesson 0006: Full Embedded C Toolbox</h1>
+    <p class="lede">
+      A source-backed, intermediate-friendly map of C types and declarations for firmware:
+      packets, registers, buffers, math, fixed-point, floating point, memory layout, concurrency,
+      RTOS boundaries, and toolchain limits.
+    </p>
+    <div class="meta">
+      <span class="pill">Audience: beginner recap → intermediate embedded C</span>
+      <span class="pill">Version: rebuilt from Lesson 0006</span>
+      <span class="pill">Main habit: choose a type by role, range, lifetime, and hardware boundary</span>
+    </div>
+  </header>
+
+  <nav class="toc" aria-label="Lesson contents">
+    <strong>Contents</strong>
+    <ul>
+      <li><a href="#what-changed">What was missing</a></li>
+      <li><a href="#one-thing">The one thing</a></li>
+      <li><a href="#beginner">Beginner layer: declaration roles</a></li>
+      <li><a href="#full-type-map">Full C type map for firmware</a></li>
+      <li><a href="#integer-model">Integer model and conversion traps</a></li>
+      <li><a href="#float-fixed">Floating point and fixed-point</a></li>
+      <li><a href="#memory-layout">Memory layout, alignment, padding, aliasing</a></li>
+      <li><a href="#wire">Wire formats, endian, serialization</a></li>
+      <li><a href="#registers">Memory-mapped registers</a></li>
+      <li><a href="#concurrency">Volatile, atomics, RTOS, DMA, barriers</a></li>
+      <li><a href="#lifetime">Lifetime, storage, stack, heap, linker sections</a></li>
+      <li><a href="#api-design">Firmware API design</a></li>
+      <li><a href="#worked-example">Worked example</a></li>
+      <li><a href="#quizzes">Quiz bank</a></li>
+      <li><a href="#summary">Summary and checklist</a></li>
+      <li><a href="#sources">Source map</a></li>
+    </ul>
+  </nav>
+
+  <section id="what-changed">
+    <h2>What was missing from the previous version</h2>
+    <p>
+      The first expanded lesson stayed too close to parser/register declarations. That was useful,
+      but not enough for an intermediate embedded C toolbox. The missing parts were:
+    </p>
+    <div class="grid">
+      <div class="tile">
+        <h3>Math types</h3>
+        <p><code>float</code>, <code>double</code>, <code>long double</code>, fixed-point, Q-format, physical units, FPU costs, and float ABI choices.</p>
+      </div>
+      <div class="tile">
+        <h3>The rest of integer reality</h3>
+        <p><code>char</code> signedness, <code>short</code>/<code>int</code>/<code>long</code>, <code>int_fastN_t</code>, <code>int_leastN_t</code>, <code>uintptr_t</code>, <code>ptrdiff_t</code>, and <code>&lt;inttypes.h&gt;</code> printing.</p>
+      </div>
+      <div class="tile">
+        <h3>Object layout</h3>
+        <p>Padding, alignment, packed structs, strict aliasing, bit-field layout, and why raw packet bytes are not an internal struct.</p>
+      </div>
+      <div class="tile">
+        <h3>Hardware boundaries</h3>
+        <p>Memory-mapped registers, compiler barriers, CPU barriers, DMA/cache coherency, interrupt boundaries, and RTOS primitives.</p>
+      </div>
+      <div class="tile">
+        <h3>Storage and lifetime</h3>
+        <p>Automatic, static, external, heap, thread-local, stack limits, linker sections, and reset initialization.</p>
+      </div>
+      <div class="tile">
+        <h3>Limits and coding standards</h3>
+        <p>Undefined behavior, implementation-defined behavior, MISRA/CERT-style habits, and practical toolchain checks.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="one-thing">
+    <h2>The one thing</h2>
+    <p>
+      In embedded C, a declaration is not just a type. It is a contract between the program,
+      the compiler, the CPU, the linker, the hardware, and sometimes an RTOS.
+    </p>
+    <div class="callout">
+      <strong>Core habit:</strong> every declaration should answer these questions:
+      What is the value’s role? What range is valid? Who owns the storage? How long does it live?
+      Can hardware change it? Can another execution context touch it? Is its binary representation visible outside the program?
+    </div>
+  </section>
+
+  <section id="beginner">
+    <h2>Beginner layer: declaration roles</h2>
+    <p>
+      Start here. Before worrying about ABI, padding, strict aliasing, or FPU context save,
+      learn to classify declarations by job.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Role</th>
+          <th>Common spelling</th>
+          <th>Example</th>
+          <th>Do not confuse it with</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Data byte</td>
+          <td><code>uint8_t</code></td>
+          <td>packet byte, checksum byte, raw register byte</td>
+          <td>a size or loop counter</td>
+        </tr>
+        <tr>
+          <td>Size / index / capacity</td>
+          <td><code>size_t</code></td>
+          <td><code>frame_len</code>, <code>dst_cap</code>, <code>i</code></td>
+          <td>a protocol byte field</td>
+        </tr>
+        <tr>
+          <td>Signed physical value</td>
+          <td><code>int16_t</code>, <code>int32_t</code></td>
+          <td>raw accelerometer count, temperature in milli-degrees</td>
+          <td>unsigned register flags</td>
+        </tr>
+        <tr>
+          <td>Fractional physical value</td>
+          <td><code>float</code> or fixed-point integer</td>
+          <td>calibrated voltage, normalized vector, filter coefficient</td>
+          <td>blind use of <code>double</code></td>
+        </tr>
+        <tr>
+          <td>Address</td>
+          <td><code>T *</code></td>
+          <td><code>const uint8_t *frame</code></td>
+          <td>actual storage</td>
+        </tr>
+        <tr>
+          <td>Output storage</td>
+          <td><code>T *out</code></td>
+          <td><code>ObcPacket *out</code></td>
+          <td>returning a pointer to a local variable</td>
+        </tr>
+        <tr>
+          <td>Boolean state</td>
+          <td><code>bool</code></td>
+          <td><code>sensor_ready</code>, <code>parse_ok</code></td>
+          <td>an error code with detail</td>
+        </tr>
+        <tr>
+          <td>Hardware access</td>
+          <td><code>volatile</code> register view</td>
+          <td><code>volatile uint32_t STATUS</code></td>
+          <td>thread synchronization</td>
+        </tr>
+        <tr>
+          <td>Shared/concurrent boundary</td>
+          <td>atomic, critical section, mutex, queue, notification</td>
+          <td>ISR-to-task event</td>
+          <td>a plain global variable</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout goodcall">
+      <strong>Simple rule:</strong> address + length is the default shape for buffer APIs:
+      <code>const uint8_t *buf, size_t len</code>. Address alone is not a buffer.
+    </div>
+  </section>
+
+  <section id="full-type-map">
+    <h2>Full C type map for firmware</h2>
+    <p>
+      This table is intentionally dense. It is the reference section you come back to when a declaration
+      feels wrong.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Tool</th>
+          <th>Use in firmware</th>
+          <th>Limit / trap</th>
+          <th>Habit</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>char</code></td>
+          <td>Text and C strings.</td>
+          <td>Plain <code>char</code> signedness is implementation-defined. Do not use it for binary bytes.</td>
+          <td>Use <code>char</code> for text, <code>uint8_t</code> or <code>unsigned char</code> for bytes.</td>
+        </tr>
+        <tr>
+          <td><code>signed char</code>, <code>unsigned char</code></td>
+          <td>Small integer values; object representation access through character types.</td>
+          <td>Not the same semantic role as text.</td>
+          <td>Be explicit when signedness matters.</td>
+        </tr>
+        <tr>
+          <td><code>short</code>, <code>int</code>, <code>long</code>, <code>long long</code></td>
+          <td>General integer arithmetic where exact external width is not required.</td>
+          <td>Widths vary by implementation and ABI. <code>int</code> is often natural for CPU arithmetic but not a wire type.</td>
+          <td>Use for local calculations only when range is obvious and representation is not externally visible.</td>
+        </tr>
+        <tr>
+          <td><code>uint8_t</code>, <code>uint16_t</code>, <code>uint32_t</code>, <code>uint64_t</code></td>
+          <td>Exact-width unsigned wire fields, registers, packed values, CRCs, masks.</td>
+          <td>Exact-width typedefs are optional; they exist only if the implementation has a matching type. <code>uint8_t</code> may behave like a character type in formatted output.</td>
+          <td>Use when bit width is part of the contract.</td>
+        </tr>
+        <tr>
+          <td><code>int8_t</code>, <code>int16_t</code>, <code>int32_t</code>, <code>int64_t</code></td>
+          <td>Exact-width signed protocol fields and sensor raw values.</td>
+          <td>Signed overflow is not a safe wraparound mechanism. <code>int8_t</code> may print as a character unless promoted/cast.</td>
+          <td>Use signed types only where negative values are valid.</td>
+        </tr>
+        <tr>
+          <td><code>uint_leastN_t</code>, <code>int_leastN_t</code></td>
+          <td>At least N bits, smallest available type.</td>
+          <td>Useful for portability, but the actual width may exceed N.</td>
+          <td>Use when you need a minimum range, not exact storage.</td>
+        </tr>
+        <tr>
+          <td><code>uint_fastN_t</code>, <code>int_fastN_t</code></td>
+          <td>At least N bits, chosen for speed on the implementation.</td>
+          <td>Can be much wider than expected, which can bloat arrays/structs. Bad for packet layout.</td>
+          <td>Use for local arithmetic, not storage format.</td>
+        </tr>
+        <tr>
+          <td><code>size_t</code></td>
+          <td>Object sizes, buffer lengths, capacities, indexes.</td>
+          <td>Unsigned. Backward loops and signed comparisons can break.</td>
+          <td>Use for memory extents; check before adding sizes.</td>
+        </tr>
+        <tr>
+          <td><code>ptrdiff_t</code></td>
+          <td>Difference between two pointers into the same array object.</td>
+          <td>Pointer subtraction outside the same array is not a portable measurement.</td>
+          <td>Use for cursor differences; keep the original buffer bounds.</td>
+        </tr>
+        <tr>
+          <td><code>intptr_t</code>, <code>uintptr_t</code></td>
+          <td>Integer type capable of holding a data pointer when provided by the implementation.</td>
+          <td>Optional. Integer-to-pointer conversion is still platform-sensitive. Does not make arbitrary addresses valid objects.</td>
+          <td>Use <code>uintptr_t</code> for register base constants and address arithmetic when necessary.</td>
+        </tr>
+        <tr>
+          <td><code>bool</code></td>
+          <td>True/false state and predicates.</td>
+          <td>Not an error-reporting system. Size is implementation-defined.</td>
+          <td>Use <code>bool</code> only when two outcomes are enough.</td>
+        </tr>
+        <tr>
+          <td><code>enum</code></td>
+          <td>Modes, states, command IDs, error codes.</td>
+          <td>Underlying representation is implementation-defined enough that you should not expose raw enum storage on the wire.</td>
+          <td>Encode/decode enum values explicitly at boundaries.</td>
+        </tr>
+        <tr>
+          <td><code>float</code></td>
+          <td>Single-precision fractional math, filters, calibration, control algorithms, sensor conversion.</td>
+          <td>Cost depends on FPU, ABI, libraries, and interrupt context. Decimal values such as 0.1 are not exact in binary.</td>
+          <td>Use deliberately; suffix constants with <code>f</code>: <code>3.3f</code>.</td>
+        </tr>
+        <tr>
+          <td><code>double</code></td>
+          <td>More precision/range where required by the algorithm or host-side model.</td>
+          <td>Often more expensive than <code>float</code>; sometimes 64-bit, sometimes target/ABI-dependent. Unsuffixed floating constants are <code>double</code>.</td>
+          <td>Do not use by habit on small MCUs.</td>
+        </tr>
+        <tr>
+          <td><code>long double</code></td>
+          <td>Rare in MCU firmware; high precision on some platforms.</td>
+          <td>Representation and cost vary widely. Usually not appropriate for small embedded targets.</td>
+          <td>Avoid unless your platform and requirement justify it.</td>
+        </tr>
+        <tr>
+          <td>Fixed-point integers</td>
+          <td>Scaled units: mV, mA, m°C, Q15/Q31 DSP values.</td>
+          <td>Scaling and overflow become your responsibility.</td>
+          <td>Name the unit in the variable: <code>battery_mv</code>, <code>temp_mdeg_c</code>.</td>
+        </tr>
+        <tr>
+          <td>Pointers</td>
+          <td>Addresses of objects, buffers, registers, callbacks, and opaque handles.</td>
+          <td>A pointer does not know length or ownership. Invalid alignment can fault or misbehave.</td>
+          <td>Pair buffer pointers with length/capacity and ownership rules.</td>
+        </tr>
+        <tr>
+          <td>Arrays</td>
+          <td>Actual contiguous storage.</td>
+          <td>Function parameters declared as arrays adjust to pointers. <code>sizeof</code> inside the callee does not recover the caller’s array length.</td>
+          <td>Use <code>sizeof array / sizeof array[0]</code> only where the array object is still in scope.</td>
+        </tr>
+        <tr>
+          <td><code>struct</code></td>
+          <td>Internal grouping of related fields.</td>
+          <td>Padding, alignment, and endian make it unsafe as a raw wire/register layout unless carefully controlled.</td>
+          <td>Good for internal objects; decode external bytes into it.</td>
+        </tr>
+        <tr>
+          <td><code>union</code></td>
+          <td>Variant storage, register overlays in vendor headers, carefully controlled type punning patterns.</td>
+          <td>Active member and aliasing rules are easy to misuse.</td>
+          <td>Use sparingly; prefer explicit encode/decode for packets.</td>
+        </tr>
+        <tr>
+          <td>Bit-fields</td>
+          <td>Readable local flags in internal structs.</td>
+          <td>Allocation order, straddling, and signedness are implementation-defined; poor fit for wire formats and many registers.</td>
+          <td>Use masks/shifts for hardware and protocols.</td>
+        </tr>
+        <tr>
+          <td>Function pointers</td>
+          <td>Callbacks, driver interfaces, state-machine actions.</td>
+          <td>Harder to trace statically; ISR safety and lifetime of context pointers matter.</td>
+          <td>Pass a <code>void *context</code> with callbacks when state is needed.</td>
+        </tr>
+        <tr>
+          <td><code>void *</code></td>
+          <td>Opaque generic data pointer.</td>
+          <td>Type information is gone; alignment and lifetime still matter.</td>
+          <td>Use only at abstraction boundaries, then cast once near the boundary.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="integer-model">
+    <h2>Integer model and conversion traps</h2>
+    <p>
+      C integer behavior is not “small integers do small math.” Integer promotions and usual arithmetic conversions
+      happen before many operations. This is where many embedded bugs hide.
+    </p>
+
+    <div class="grid">
+      <div class="tile">
+        <h3>Promotion before arithmetic</h3>
+        <pre><code>uint8_t a = 250u;
+uint8_t b = 10u;
+
+/* a and b are promoted before addition. */
+uint8_t c = (uint8_t)(a + b);</code></pre>
+        <p>
+          The cast may be intentional modulo behavior, but it should be obvious and documented.
+        </p>
+      </div>
+      <div class="tile">
+        <h3>Check size addition</h3>
+        <pre><code>if (payload_len &gt; SIZE_MAX - HEADER_LEN) {
+    return ERR_OVERFLOW;
+}
+size_t total = HEADER_LEN + payload_len;</code></pre>
+        <p>
+          Unsigned wrap is defined, but usually still a bug in length/capacity calculations.
+        </p>
+      </div>
+      <div class="tile">
+        <h3>Shift with width discipline</h3>
+        <pre><code>if (bit &gt;= 32u) {
+    return ERR_BAD_BIT;
+}
+uint32_t mask = UINT32_C(1) &lt;&lt; bit;</code></pre>
+        <p>
+          Shift counts must be valid, and signed shifts are a common source of undefined or surprising behavior.
+        </p>
+      </div>
+      <div class="tile">
+        <h3>Use <code>&lt;inttypes.h&gt;</code> for printing</h3>
+        <pre><code>#include &lt;inttypes.h&gt;
+
+uint32_t ticks = 1234u;
+printf("ticks=%" PRIu32 "\n", ticks);</code></pre>
+        <p>
+          Fixed-width integer typedefs are not guaranteed to match a particular <code>printf</code> format like <code>%lu</code>.
+        </p>
+      </div>
+    </div>
+
+    <h3>Integer checklist</h3>
+    <ul>
+      <li>Use unsigned types for masks and modulo counters where wrap is intentional.</li>
+      <li>Use signed types for physical values that can be negative.</li>
+      <li>Do not mix signed values and <code>size_t</code> without thinking through the comparison.</li>
+      <li>Do not cast away warnings; prove range first.</li>
+      <li>Do not use <code>uint8_t</code> as a loop counter just because the buffer is small.</li>
+      <li>Use named limits: <code>UINT8_MAX</code>, <code>INT16_MIN</code>, <code>SIZE_MAX</code>.</li>
+    </ul>
+  </section>
+
+  <section id="float-fixed">
+    <h2>Floating point and fixed-point</h2>
+    <p>
+      Floating point is not forbidden in embedded C. It is a design choice. On an MCU with a correctly enabled
+      single-precision FPU, <code>float</code> can be completely reasonable. On an MCU without an FPU, the same expression
+      may become a software library call. With an RTOS, FPU use can affect context switching. With a strict ABI,
+      object files compiled with incompatible floating-point options may not link safely.
+    </p>
+
+    <div class="split">
+      <div>
+        <table>
+          <thead>
+            <tr>
+              <th>Representation</th>
+              <th>Good for</th>
+              <th>Limit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>float</code></td>
+              <td>Calibration, filters, control math, normalized sensor values, readable formulas.</td>
+              <td>Rounding, non-exact decimal fractions, possible FPU/library/context cost.</td>
+            </tr>
+            <tr>
+              <td><code>double</code></td>
+              <td>Algorithms that truly need more precision/range.</td>
+              <td>Unsuffixed constants and many math functions default toward double. Can be expensive.</td>
+            </tr>
+            <tr>
+              <td>Scaled integer</td>
+              <td>Physical values with fixed units: mV, mA, m°C, ppm, ticks.</td>
+              <td>You manage scale, rounding, saturation, and overflow.</td>
+            </tr>
+            <tr>
+              <td>Q-format</td>
+              <td>DSP/control math with fixed binary scale, e.g. Q15 or Q31.</td>
+              <td>Requires discipline; easy to multiply into overflow.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="tile">
+        <h3>Decision rule</h3>
+        <p>
+          Use <code>float</code> when the equation is clearer and the target can afford it. Use fixed-point when
+          determinism, storage, timing, wire format, or lack of FPU matters more.
+        </p>
+        <pre><code>/* Fixed-point physical units. */
+uint16_t battery_mv = 3700u;       /* 3.700 V */
+int32_t temp_mdeg_c = 25375;       /* 25.375 °C */
+
+/* Float physical value. */
+float battery_v = 3.700f;</code></pre>
+      </div>
+    </div>
+
+    <h3>Floating-point traps in firmware</h3>
+    <div class="grid">
+      <div class="tile">
+        <h4>Unsuffixed constants</h4>
+        <pre><code>float v = adc * 3.3 / 4095.0;   /* double constants */
+float w = adc * 3.3f / 4095.0f; /* float constants */</code></pre>
+        <p>Use <code>f</code> suffixes when you want single-precision arithmetic.</p>
+      </div>
+      <div class="tile">
+        <h4>Float loop counters</h4>
+        <pre><code>/* Bad: may miss, repeat, or not terminate as expected. */
+for (float x = 0.0f; x != 1.0f; x += 0.1f) { }
+
+/* Better. */
+for (size_t i = 0; i &lt;= 10u; ++i) {
+    float x = (float)i / 10.0f;
+}</code></pre>
+      </div>
+      <div class="tile">
+        <h4>Printf cost</h4>
+        <p>
+          Many embedded C libraries omit floating-point <code>printf</code> by default or pull in a large formatting
+          path when enabled.
+        </p>
+        <pre><code>/* Often cheaper for logs: */
+printf("%" PRIu16 " mV\n", battery_mv);</code></pre>
+      </div>
+      <div class="tile">
+        <h4>FPU and ABI</h4>
+        <p>
+          On Arm/GCC, soft-float and hard-float ABI choices are not link-compatible. Treat floating-point compiler
+          flags as a project-wide interface, not a file-local preference.
+        </p>
+      </div>
+    </div>
+
+    <h3>Fixed-point patterns</h3>
+    <pre><code>/* Convert ADC counts to millivolts without float.
+   Example: 12-bit ADC, 3300 mV reference. */
+static uint16_t adc_to_mv(uint16_t adc_count)
+{
+    uint32_t mv = ((uint32_t)adc_count * 3300u + 2047u) / 4095u;
+    if (mv &gt; UINT16_MAX) {
+        mv = UINT16_MAX;
+    }
+    return (uint16_t)mv;
+}
+
+/* Q15 multiply with rounding: result is also Q15. */
+static int16_t q15_mul(int16_t a, int16_t b)
+{
+    int32_t prod = (int32_t)a * (int32_t)b;     /* Q30 */
+    prod += (int32_t)1 &lt;&lt; 14;                  /* round */
+    prod &gt;&gt;= 15;                               /* back to Q15 */
+
+    if (prod &gt; INT16_MAX) { return INT16_MAX; }
+    if (prod &lt; INT16_MIN) { return INT16_MIN; }
+    return (int16_t)prod;
+}</code></pre>
+  </section>
+
+  <section id="memory-layout">
+    <h2>Memory layout, alignment, padding, and aliasing</h2>
+    <p>
+      C objects have representation and alignment. Firmware often violates those rules accidentally because packets,
+      registers, DMA buffers, and flash images look like “just bytes.” They are not all the same thing.
+    </p>
+
+    <h3>Struct padding is normal</h3>
+    <pre><code>typedef struct {
+    uint8_t  id;
+    uint32_t timestamp;
+    uint16_t value;
+} Sample;
+
+/* This is probably larger than 7 bytes because of padding. */</code></pre>
+
+    <div class="grid">
+      <div class="callout warn">
+        <strong>Do not serialize with <code>memcpy(&amp;wire, &amp;sample, sizeof sample)</code></strong>
+        unless the binary layout is explicitly controlled and tested for your compiler, ABI, and target.
+      </div>
+      <div class="callout warn">
+        <strong>Do not cast unaligned bytes to wider pointers.</strong>
+        Some MCUs fault on unaligned access; others allow it slowly; others silently produce multiple bus cycles.
+      </div>
+    </div>
+
+    <h3>Packed structs are not magic</h3>
+    <p>
+      Compiler-specific packing attributes can remove padding, but they do not solve endian order, atomicity,
+      alignment cost, strict aliasing, or future portability. Packed structs are sometimes appropriate for carefully
+      reviewed hardware or wire definitions, but explicit encode/decode helpers are usually safer for protocol code.
+    </p>
+
+    <h3>Strict aliasing and byte access</h3>
+    <p>
+      Accessing object representation through character types is a special case in C. Reinterpreting arbitrary
+      object pointers as unrelated struct or integer pointer types is not a general-purpose decoding strategy.
+    </p>
+
+    <pre><code>/* Good: decode bytes explicitly. */
+static uint32_t read_be32(const uint8_t b[4])
+{
+    return ((uint32_t)b[0] &lt;&lt; 24) |
+           ((uint32_t)b[1] &lt;&lt; 16) |
+           ((uint32_t)b[2] &lt;&lt;  8) |
+           ((uint32_t)b[3]);
+}
+
+/* Risky: alignment, aliasing, and endian assumptions. */
+uint32_t x = *(const uint32_t *)&amp;frame[0];</code></pre>
+
+    <h3>Bit-fields</h3>
+    <p>
+      Bit-fields look tempting for registers and packets, but their allocation order, straddling behavior, and some
+      signedness details are implementation-defined. Use masks and shifts for hardware and wire formats unless your
+      vendor header or coding standard gives a specific, reviewed reason.
+    </p>
+  </section>
+
+  <section id="wire">
+    <h2>Wire formats, endian, and serialization</h2>
+    <p>
+      External binary representation is a contract. Internal C object layout is an implementation detail.
+      Keep them separate.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Boundary</th>
+          <th>Preferred representation</th>
+          <th>Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>UART/SPI/I2C/CAN packet</td>
+          <td><code>uint8_t</code> byte stream + explicit decode</td>
+          <td>Controls endian, length, checksum, and field validation.</td>
+        </tr>
+        <tr>
+          <td>Flash settings image</td>
+          <td>Versioned byte layout + CRC + defaults</td>
+          <td>Survives firmware updates and struct changes.</td>
+        </tr>
+        <tr>
+          <td>Internal application object</td>
+          <td><code>struct</code></td>
+          <td>Readable, type-safe grouping after validation.</td>
+        </tr>
+        <tr>
+          <td>Network-style integer</td>
+          <td>Explicit big-endian/little-endian helpers</td>
+          <td>Avoids host-endian assumptions.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <pre><code>typedef struct {
+    uint8_t msg_id;
+    uint16_t sensor_raw;
+    uint16_t battery_mv;
+} Telemetry;
+
+static bool telemetry_decode(const uint8_t *buf,
+                             size_t len,
+                             Telemetry *out)
+{
+    if ((buf == NULL) || (out == NULL)) {
+        return false;
+    }
+    if (len &lt; 5u) {
+        return false;
+    }
+
+    out-&gt;msg_id = buf[0];
+    out-&gt;sensor_raw = ((uint16_t)buf[1] &lt;&lt; 8) | (uint16_t)buf[2];
+    out-&gt;battery_mv = ((uint16_t)buf[3] &lt;&lt; 8) | (uint16_t)buf[4];
+    return true;
+}</code></pre>
+  </section>
+
+  <section id="registers">
+    <h2>Memory-mapped registers</h2>
+    <p>
+      A memory-mapped register is an address where a C load or store becomes a bus transaction with hardware meaning.
+      <code>volatile</code> makes the compiler preserve accesses through that volatile-qualified lvalue. It does not
+      make a sequence atomic, and it does not mean the register behaves like RAM.
+    </p>
+
+    <pre><code>#include &lt;stdint.h&gt;
+
+typedef struct {
+    volatile uint32_t CTRL;          /* read/write */
+    volatile const uint32_t STATUS;  /* read-only through C */
+    volatile uint32_t TXDATA;        /* write data */
+    volatile const uint32_t RXDATA;  /* read data */
+} UartRegs;
+
+#define UART0_BASE_ADDR (UINT32_C(0x40000000))
+#define UART0 ((UartRegs *)(uintptr_t)UART0_BASE_ADDR)
+
+#define UART_CTRL_TX_EN_Msk     (UINT32_C(1) &lt;&lt; 0)
+#define UART_STATUS_TX_RDY_Msk  (UINT32_C(1) &lt;&lt; 5)
+
+static void uart_enable_tx(void)
+{
+    UART0-&gt;CTRL |= UART_CTRL_TX_EN_Msk;
+}</code></pre>
+
+    <h3>Register access traps</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Trap</th>
+          <th>Why it fails</th>
+          <th>Better habit</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>REG |= MASK</code> on write-one-to-clear flags</td>
+          <td>Read-modify-write may write back flags you did not intend to clear.</td>
+          <td>Write the exact clear mask required by the reference manual.</td>
+        </tr>
+        <tr>
+          <td>Reading a write-only register</td>
+          <td>Read may be undefined, stale, or have side effects.</td>
+          <td>Use shadow variables only when the hardware manual supports that model.</td>
+        </tr>
+        <tr>
+          <td>Ignoring reserved bits</td>
+          <td>Writing reserved bits can trigger undocumented behavior.</td>
+          <td>Use reset values, masks, vendor definitions, and manual-prescribed sequences.</td>
+        </tr>
+        <tr>
+          <td>Assuming bit-band/set/clear exists</td>
+          <td>Not all MCUs provide atomic alias registers or bit-band regions.</td>
+          <td>Use target-specific atomic set/clear registers where provided.</td>
+        </tr>
+        <tr>
+          <td>Using home-made register maps without checking vendor headers</td>
+          <td>Offset, width, and access permission mistakes are easy.</td>
+          <td>Prefer CMSIS/device headers or SVD-generated headers where available.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="concurrency">
+    <h2>Volatile, atomics, RTOS, DMA, and barriers</h2>
+    <p>
+      This is the section to be strict about. Many firmware bugs survive because <code>volatile</code> is used as
+      a superstition. It has a legitimate job, but that job is narrower than people think.
+    </p>
+
+    <div class="summary-card">
+      <h3>Hard distinction</h3>
+      <p>
+        <strong><code>volatile</code> controls compiler treatment of accesses to volatile-qualified objects.</strong>
+        Synchronization controls visibility, ordering, ownership, and atomicity between execution contexts.
+        These are related in embedded systems, but not interchangeable.
+      </p>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Situation</th>
+          <th>Use</th>
+          <th>Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Memory-mapped register</td>
+          <td><code>volatile</code> register access</td>
+          <td>Each access has hardware meaning.</td>
+        </tr>
+        <tr>
+          <td>Task waits for ISR event</td>
+          <td>RTOS task notification, semaphore, queue, or event group</td>
+          <td>Scheduler-aware synchronization and wakeup.</td>
+        </tr>
+        <tr>
+          <td>Two tasks share mutable data</td>
+          <td>Mutex, queue ownership transfer, critical section</td>
+          <td>Prevents concurrent mutation and documents ownership.</td>
+        </tr>
+        <tr>
+          <td>Bare-metal ISR flag</td>
+          <td>Platform-critical section or atomic where supported</td>
+          <td>Prevents lost updates and inconsistent multi-field state.</td>
+        </tr>
+        <tr>
+          <td>DMA reads/writes memory</td>
+          <td>Cache maintenance + memory barriers + aligned buffers as required</td>
+          <td>DMA is outside the C abstract machine and may not see CPU cache state.</td>
+        </tr>
+        <tr>
+          <td>Compiler reordering around inline asm</td>
+          <td>Compiler barrier such as a memory clobber</td>
+          <td>Conservatively tells compiler memory may have changed.</td>
+        </tr>
+        <tr>
+          <td>CPU/device ordering</td>
+          <td>Architecture-specific barriers such as DMB/DSB/ISB on Arm</td>
+          <td>Compiler barriers do not stop CPU-level speculation or hardware reordering.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Bad and better ISR-to-main patterns</h3>
+    <pre><code>/* Bad if more than one context writes or reads related state. */
+volatile bool rx_ready;
+uint8_t rx_buf[64];
+size_t rx_len;
+
+/* Better shape: protect the state transfer. */
+bool app_take_rx(uint8_t *dst, size_t cap, size_t *used)
+{
+    if ((dst == NULL) || (used == NULL)) {
+        return false;
+    }
+
+    ENTER_CRITICAL();
+    bool ready = rx_ready;
+    size_t len = rx_len;
+
+    if (ready && (len &lt;= cap)) {
+        for (size_t i = 0; i &lt; len; ++i) {
+            dst[i] = rx_buf[i];
+        }
+        rx_ready = false;
+    }
+    EXIT_CRITICAL();
+
+    if (!ready || (len &gt; cap)) {
+        return false;
+    }
+
+    *used = len;
+    return true;
+}</code></pre>
+
+    <p class="small">
+      The exact correct primitive depends on interrupt priority rules, RTOS port rules, cache configuration,
+      memory type, and whether there is more than one core.
+    </p>
+  </section>
+
+  <section id="lifetime">
+    <h2>Lifetime, storage, stack, heap, and linker sections</h2>
+    <p>
+      Embedded C is not only about type width. Where the object lives can matter more than its type.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Storage/lifetime</th>
+          <th>Use</th>
+          <th>Embedded limit</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Automatic local</td>
+          <td>Temporary function data on the stack.</td>
+          <td>Stack is finite. Large local arrays can cause rare, catastrophic overflow.</td>
+        </tr>
+        <tr>
+          <td>Function parameter</td>
+          <td>Caller-provided values and addresses.</td>
+          <td>Pointer parameters do not carry ownership or length unless documented.</td>
+        </tr>
+        <tr>
+          <td>File-scope <code>static</code></td>
+          <td>Private module state and helpers.</td>
+          <td>Persists for program lifetime; must be initialized/reset consciously.</td>
+        </tr>
+        <tr>
+          <td>External global</td>
+          <td>Rare system-level shared object.</td>
+          <td>Creates coupling and synchronization hazards.</td>
+        </tr>
+        <tr>
+          <td>Heap allocation</td>
+          <td>Dynamic objects where the system design allows it.</td>
+          <td>Fragmentation, failure paths, nondeterminism, and test burden.</td>
+        </tr>
+        <tr>
+          <td>Linker section</td>
+          <td>DMA buffers, bootloader tables, flash constants, retention RAM.</td>
+          <td>Compiler attributes are non-standard; linker script and startup code must agree.</td>
+        </tr>
+        <tr>
+          <td>Thread-local</td>
+          <td>Per-thread state in hosted or RTOS-supported environments.</td>
+          <td>Not universally supported in bare-metal toolchains and can increase per-thread RAM.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Stack discipline</h3>
+    <pre><code>/* Risky on small MCU stack. */
+void f(void)
+{
+    uint8_t huge_temp[4096];
+}
+
+/* Better: static private buffer, caller-provided buffer,
+   or a designed memory pool. */
+static uint8_t module_workbuf[4096];</code></pre>
+
+    <div class="callout warn">
+      <strong>Do not hide memory ownership.</strong> If a function keeps a pointer after returning,
+      its API must say so. Most embedded pointer bugs are lifetime bugs wearing type syntax.
+    </div>
+  </section>
+
+  <section id="api-design">
+    <h2>Firmware API design</h2>
+    <p>
+      A good embedded C API makes the correct use boring and the wrong use obvious.
+    </p>
+
+    <h3>Preferred parser shape</h3>
+    <pre><code>typedef enum {
+    OBC_OK = 0,
+    OBC_ERR_NULL,
+    OBC_ERR_SHORT,
+    OBC_ERR_BAD_SOF,
+    OBC_ERR_BAD_LEN,
+    OBC_ERR_BAD_CRC,
+    OBC_ERR_OVERFLOW
+} ObcStatus;
+
+ObcStatus obc_parse_frame(const uint8_t *frame,
+                          size_t frame_len,
+                          ObcPacket *out);</code></pre>
+
+    <h3>API rules</h3>
+    <ul>
+      <li>Every buffer pointer has a length or capacity.</li>
+      <li>Every output pointer is checked for <code>NULL</code> before use.</li>
+      <li>Every public function says whether it can block, sleep, spin, allocate, or be called from an ISR.</li>
+      <li>Every module hides private helpers with file-scope <code>static</code>.</li>
+      <li>Every enum crossing a wire/storage boundary is explicitly encoded as a fixed-width integer.</li>
+      <li>Every unit is in the name: <code>timeout_ms</code>, <code>freq_hz</code>, <code>voltage_mv</code>, <code>temp_mdeg_c</code>.</li>
+      <li>Every shared object has a synchronization rule next to it.</li>
+    </ul>
+
+    <h3>Callback pattern</h3>
+    <pre><code>typedef void (*UartRxCallback)(void *context,
+                               const uint8_t *data,
+                               size_t len);
+
+typedef struct {
+    UartRxCallback on_rx;
+    void *context;
+} UartCallbacks;</code></pre>
+
+    <p>
+      The callback receives a context pointer so it does not need hidden globals. The driver documentation must state
+      whether the callback runs in ISR context and whether <code>data</code> remains valid after the callback returns.
+    </p>
+  </section>
+
+  <section id="worked-example">
+    <h2>Worked example: parser + scaling + register boundary</h2>
+    <p>
+      This example combines the toolbox: exact-width wire fields, <code>size_t</code> lengths, explicit endian decode,
+      fixed-point units, <code>float</code> conversion for algorithm-side readability, and register access separated
+      from packet parsing.
+    </p>
+
+    <pre><code>#include &lt;stdbool.h&gt;
+#include &lt;stddef.h&gt;
+#include &lt;stdint.h&gt;
+#include &lt;limits.h&gt;
+
+enum {
+    OBC_SOF0 = 0xA5u,
+    OBC_SOF1 = 0x5Au,
+    OBC_MIN_FRAME_LEN = 7u,
+    OBC_MAX_PAYLOAD = 32u
+};
+
+typedef enum {
+    OBC_OK = 0,
+    OBC_ERR_NULL,
+    OBC_ERR_SHORT,
+    OBC_ERR_BAD_SOF,
+    OBC_ERR_BAD_LEN,
+    OBC_ERR_BAD_CHECKSUM
+} ObcStatus;
+
+typedef struct {
+    uint8_t msg_id;
+    uint16_t adc_count;      /* raw 12-bit ADC in a 16-bit field */
+    uint16_t battery_mv;     /* scaled fixed-point physical unit */
+    float battery_v;         /* algorithm/logging convenience */
+} ObcTelemetry;
+
+static uint16_t read_be16(const uint8_t b[2])
+{
+    return ((uint16_t)b[0] &lt;&lt; 8) | (uint16_t)b[1];
+}
+
+static uint8_t checksum8(const uint8_t *bytes, size_t len)
+{
+    uint8_t sum = 0u;
+    for (size_t i = 0u; i &lt; len; ++i) {
+        sum = (uint8_t)(sum + bytes[i]);
+    }
+    return sum;
+}
+
+static uint16_t adc12_to_mv(uint16_t adc_count)
+{
+    if (adc_count &gt; 4095u) {
+        adc_count = 4095u;
+    }
+
+    uint32_t mv = ((uint32_t)adc_count * 3300u + 2047u) / 4095u;
+    return (uint16_t)mv;
+}
+
+ObcStatus obc_decode_telemetry(const uint8_t *frame,
+                               size_t frame_len,
+                               ObcTelemetry *out)
+{
+    if ((frame == NULL) || (out == NULL)) {
+        return OBC_ERR_NULL;
+    }
+
+    if (frame_len &lt; OBC_MIN_FRAME_LEN) {
+        return OBC_ERR_SHORT;
+    }
+
+    if ((frame[0] != OBC_SOF0) || (frame[1] != OBC_SOF1)) {
+        return OBC_ERR_BAD_SOF;
+    }
+
+    const uint8_t msg_id = frame[2];
+    const uint8_t payload_len = frame[3];
+
+    if (payload_len != 2u) {
+        return OBC_ERR_BAD_LEN;
+    }
+
+    const size_t expected_len = 4u + (size_t)payload_len + 1u;
+    if (frame_len != expected_len) {
+        return OBC_ERR_BAD_LEN;
+    }
+
+    const uint8_t expected = checksum8(&amp;frame[2], 2u + (size_t)payload_len);
+    const uint8_t actual = frame[expected_len - 1u];
+
+    if (actual != expected) {
+        return OBC_ERR_BAD_CHECKSUM;
+    }
+
+    const uint16_t adc = read_be16(&amp;frame[4]);
+    const uint16_t mv = adc12_to_mv(adc);
+
+    out-&gt;msg_id = msg_id;
+    out-&gt;adc_count = adc;
+    out-&gt;battery_mv = mv;
+    out-&gt;battery_v = (float)mv / 1000.0f;
+
+    return OBC_OK;
+}</code></pre>
+
+    <h3>Why each declaration is there</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Declaration</th>
+          <th>Role</th>
+          <th>Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>const uint8_t *frame</code></td><td>Borrowed read-only bytes</td><td>Parser must inspect packet bytes without mutating caller storage.</td></tr>
+        <tr><td><code>size_t frame_len</code></td><td>Valid byte count</td><td>Address alone has no length.</td></tr>
+        <tr><td><code>ObcTelemetry *out</code></td><td>Caller-owned output storage</td><td>Parser writes after validation.</td></tr>
+        <tr><td><code>uint16_t adc_count</code></td><td>Exact-width raw field</td><td>Wire field is 16 bits; actual ADC range is checked separately.</td></tr>
+        <tr><td><code>uint16_t battery_mv</code></td><td>Fixed-point physical unit</td><td>Efficient, exact integer unit for logs/storage/control thresholds.</td></tr>
+        <tr><td><code>float battery_v</code></td><td>Fractional convenience</td><td>Readable algorithm-side value; not required for wire storage.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="quizzes">
+    <h2>Quiz bank</h2>
+    <p>
+      These are deliberately mixed. Some are beginner role checks; others are intermediate firmware traps.
+    </p>
+
+    <section class="quiz-section">
+      <h3>Quiz A: type roles</h3>
+      <div class="question">
+        <h4>1. Which type should hold a buffer capacity?</h4>
+        <button data-target="q1" data-answer="wrong" data-feedback="No. uint8_t is a byte-sized representation, not the general type for object extents.">uint8_t</button>
+        <button data-target="q1" data-answer="right" data-feedback="Correct. size_t is the normal type for object sizes and capacities.">size_t</button>
+        <button data-target="q1" data-answer="wrong" data-feedback="No. bool is only true/false.">bool</button>
+        <div class="feedback" id="q1"></div>
+      </div>
+      <div class="question">
+        <h4>2. Which type is best for a UART packet byte?</h4>
+        <button data-target="q2" data-answer="right" data-feedback="Correct. uint8_t expresses one unsigned byte of binary data.">uint8_t</button>
+        <button data-target="q2" data-answer="wrong" data-feedback="No. char should normally mean text, not arbitrary binary.">char</button>
+        <button data-target="q2" data-answer="wrong" data-feedback="No. float is not a byte representation.">float</button>
+        <div class="feedback" id="q2"></div>
+      </div>
+      <div class="question">
+        <h4>3. Which spelling means borrowed read-only bytes?</h4>
+        <button data-target="q3" data-answer="right" data-feedback="Correct. The bytes must not be modified through this pointer."><code>const uint8_t *buf</code></button>
+        <button data-target="q3" data-answer="wrong" data-feedback="No. This is a fixed pointer to mutable bytes."><code>uint8_t * const buf</code></button>
+        <button data-target="q3" data-answer="wrong" data-feedback="No. This is just one byte."><code>uint8_t buf</code></button>
+        <div class="feedback" id="q3"></div>
+      </div>
+      <div class="question">
+        <h4>4. What should an output pointer usually be paired with?</h4>
+        <button data-target="q4" data-answer="right" data-feedback="Correct. Validate NULL and return status so the caller can recover.">NULL check and status return</button>
+        <button data-target="q4" data-answer="wrong" data-feedback="No. volatile is unrelated to normal output storage.">volatile</button>
+        <button data-target="q4" data-answer="wrong" data-feedback="No. A pointer alone does not prove storage is valid.">No checks</button>
+        <div class="feedback" id="q4"></div>
+      </div>
+    </section>
+
+    <section class="quiz-section">
+      <h3>Quiz B: integer traps</h3>
+      <div class="question">
+        <h4>5. Why is <code>uint_fast8_t arr[100]</code> potentially a bad storage choice?</h4>
+        <button data-target="q5" data-answer="right" data-feedback="Correct. The fast type may be wider than 8 bits and can bloat storage.">It may be wider than 8 bits</button>
+        <button data-target="q5" data-answer="wrong" data-feedback="No. The issue is not that it cannot hold values.">It cannot hold 8-bit values</button>
+        <button data-target="q5" data-answer="wrong" data-feedback="No. It is a standard typedef family when provided.">It is illegal C</button>
+        <div class="feedback" id="q5"></div>
+      </div>
+      <div class="question">
+        <h4>6. What is wrong with <code>if (len &lt; 0)</code> when <code>len</code> is <code>size_t</code>?</h4>
+        <button data-target="q6" data-answer="right" data-feedback="Correct. size_t is unsigned, so it is never less than zero.">The test is useless</button>
+        <button data-target="q6" data-answer="wrong" data-feedback="No. size_t is for sizes; the comparison is the issue.">size_t cannot represent sizes</button>
+        <button data-target="q6" data-answer="wrong" data-feedback="No. volatile is irrelevant here.">It needs volatile</button>
+        <div class="feedback" id="q6"></div>
+      </div>
+      <div class="question">
+        <h4>7. What should you check before <code>a + b</code> when both are sizes?</h4>
+        <button data-target="q7" data-answer="right" data-feedback="Correct. Unsigned wrap in a size calculation is usually a bug.">Overflow/wrap</button>
+        <button data-target="q7" data-answer="wrong" data-feedback="No. Endianness does not affect local size_t addition.">Endianness</button>
+        <button data-target="q7" data-answer="wrong" data-feedback="No. printf formatting is unrelated.">PRI macros</button>
+        <div class="feedback" id="q7"></div>
+      </div>
+      <div class="question">
+        <h4>8. Best constant for a 32-bit bit mask?</h4>
+        <button data-target="q8" data-answer="wrong" data-feedback="No. Plain 1 is an int and can create signed-shift problems."><code>1 &lt;&lt; bit</code></button>
+        <button data-target="q8" data-answer="right" data-feedback="Correct. Use an explicitly unsigned 32-bit constant and validate bit."><code>UINT32_C(1) &lt;&lt; bit</code></button>
+        <button data-target="q8" data-answer="wrong" data-feedback="No. bool is not a mask type."><code>true &lt;&lt; bit</code></button>
+        <div class="feedback" id="q8"></div>
+      </div>
+    </section>
+
+    <section class="quiz-section">
+      <h3>Quiz C: floating point and fixed-point</h3>
+      <div class="question">
+        <h4>9. Why might <code>3.3</code> be worse than <code>3.3f</code> in float-heavy MCU code?</h4>
+        <button data-target="q9" data-answer="right" data-feedback="Correct. Unsuffixed floating constants are double, which can pull the expression toward double.">It is a double constant</button>
+        <button data-target="q9" data-answer="wrong" data-feedback="No. 3.3 and 3.3f both represent fractional values.">It is an integer</button>
+        <button data-target="q9" data-answer="wrong" data-feedback="No. The suffix affects type, not volatile behavior.">It disables volatile</button>
+        <div class="feedback" id="q9"></div>
+      </div>
+      <div class="question">
+        <h4>10. Which is often best for storing battery voltage as 3700 mV?</h4>
+        <button data-target="q10" data-answer="wrong" data-feedback="Maybe usable, but not best for exact storage of a millivolt unit.">float battery_v</button>
+        <button data-target="q10" data-answer="right" data-feedback="Correct. The name and integer unit are explicit and cheap.">uint16_t battery_mv</button>
+        <button data-target="q10" data-answer="wrong" data-feedback="No. bool can only say true or false.">bool battery</button>
+        <div class="feedback" id="q10"></div>
+      </div>
+      <div class="question">
+        <h4>11. Why avoid floating-point loop counters?</h4>
+        <button data-target="q11" data-answer="right" data-feedback="Correct. Binary floating-point cannot exactly represent many decimal steps.">Rounding can change iteration behavior</button>
+        <button data-target="q11" data-answer="wrong" data-feedback="No. Floats are legal C.">They are syntax errors</button>
+        <button data-target="q11" data-answer="wrong" data-feedback="No. Volatile does not fix numeric precision.">They need volatile</button>
+        <div class="feedback" id="q11"></div>
+      </div>
+      <div class="question">
+        <h4>12. What is a project-wide floating-point ABI trap?</h4>
+        <button data-target="q12" data-answer="right" data-feedback="Correct. Soft-float and hard-float ABI choices must be consistent across objects/libraries.">Mixing incompatible soft/hard float objects</button>
+        <button data-target="q12" data-answer="wrong" data-feedback="No. Functions can use float parameters.">A function cannot return float</button>
+        <button data-target="q12" data-answer="wrong" data-feedback="No. Headers are not the core ABI issue here.">Including stdint.h</button>
+        <div class="feedback" id="q12"></div>
+      </div>
+    </section>
+
+    <section class="quiz-section">
+      <h3>Quiz D: layout and wire formats</h3>
+      <div class="question">
+        <h4>13. Why not cast packet bytes directly to a struct pointer?</h4>
+        <button data-target="q13" data-answer="right" data-feedback="Correct. Padding, alignment, endian, and aliasing can all break it.">Layout and alignment are not guaranteed</button>
+        <button data-target="q13" data-answer="wrong" data-feedback="No. The syntax may compile; correctness is the problem.">C has no casts</button>
+        <button data-target="q13" data-answer="wrong" data-feedback="No. Structs can be copied; this cast is the issue.">Structs cannot hold bytes</button>
+        <div class="feedback" id="q13"></div>
+      </div>
+      <div class="question">
+        <h4>14. Best habit for multi-byte packet fields?</h4>
+        <button data-target="q14" data-answer="right" data-feedback="Correct. Explicit decode controls byte order and width.">Decode with shifts/masks</button>
+        <button data-target="q14" data-answer="wrong" data-feedback="No. That assumes alignment and host endian.">Cast to uint16_t *</button>
+        <button data-target="q14" data-answer="wrong" data-feedback="No. volatile is for hardware-visible access, not normal packet bytes.">Declare the packet volatile</button>
+        <div class="feedback" id="q14"></div>
+      </div>
+      <div class="question">
+        <h4>15. Why are bit-fields risky for hardware register layout?</h4>
+        <button data-target="q15" data-answer="right" data-feedback="Correct. Allocation order and related details are implementation-defined.">Implementation-defined layout</button>
+        <button data-target="q15" data-answer="wrong" data-feedback="No. Bit-fields are a C feature.">They are not C</button>
+        <button data-target="q15" data-answer="wrong" data-feedback="No. They can store bits; the issue is layout contract.">They cannot store one-bit values</button>
+        <div class="feedback" id="q15"></div>
+      </div>
+      <div class="question">
+        <h4>16. What does a packed struct not solve?</h4>
+        <button data-target="q16" data-answer="right" data-feedback="Correct. Packing does not solve endian, aliasing, or access-cost problems.">Endian and aliasing</button>
+        <button data-target="q16" data-answer="wrong" data-feedback="No. Packing can remove padding on compilers that support it.">All padding always remains</button>
+        <button data-target="q16" data-answer="wrong" data-feedback="No. This is unrelated.">Boolean logic</button>
+        <div class="feedback" id="q16"></div>
+      </div>
+    </section>
+
+    <section class="quiz-section">
+      <h3>Quiz E: registers and concurrency</h3>
+      <div class="question">
+        <h4>17. Does <code>volatile</code> make <code>counter++</code> atomic?</h4>
+        <button data-target="q17" data-answer="wrong" data-feedback="No. Increment is a read-modify-write sequence.">Yes</button>
+        <button data-target="q17" data-answer="right" data-feedback="Correct. Volatile does not make compound operations atomic.">No</button>
+        <button data-target="q17" data-answer="wrong" data-feedback="No. Optimization level does not turn volatile into a lock.">Only at -O0</button>
+        <div class="feedback" id="q17"></div>
+      </div>
+      <div class="question">
+        <h4>18. Best primitive for ISR waking an RTOS task?</h4>
+        <button data-target="q18" data-answer="right" data-feedback="Correct. Use the RTOS primitive designed for ISR-to-task signaling.">Task notification/semaphore/queue</button>
+        <button data-target="q18" data-answer="wrong" data-feedback="No. A global flag alone ignores scheduler and ordering concerns.">Plain global flag only</button>
+        <button data-target="q18" data-answer="wrong" data-feedback="No. restrict is an aliasing promise.">restrict</button>
+        <div class="feedback" id="q18"></div>
+      </div>
+      <div class="question">
+        <h4>19. What is wrong with <code>FLAGS |= MASK</code> on write-one-to-clear flags?</h4>
+        <button data-target="q19" data-answer="right" data-feedback="Correct. Read-modify-write can clear unintended flags.">It may clear unintended flags</button>
+        <button data-target="q19" data-answer="wrong" data-feedback="No. This is not fixed by volatile.">Nothing if volatile</button>
+        <button data-target="q19" data-answer="wrong" data-feedback="No. It is usually valid syntax.">It cannot compile</button>
+        <div class="feedback" id="q19"></div>
+      </div>
+      <div class="question">
+        <h4>20. What does a GCC memory clobber barrier not guarantee?</h4>
+        <button data-target="q20" data-answer="right" data-feedback="Correct. It is a compiler barrier, not necessarily a CPU/device fence.">Processor-level ordering/speculation</button>
+        <button data-target="q20" data-answer="wrong" data-feedback="No. It affects compiler assumptions about memory.">Any compiler effect</button>
+        <button data-target="q20" data-answer="wrong" data-feedback="No. This is unrelated.">That variables exist</button>
+        <div class="feedback" id="q20"></div>
+      </div>
+    </section>
+
+    <section class="quiz-section">
+      <h3>Quiz F: lifetime and APIs</h3>
+      <div class="question">
+        <h4>21. Why is returning <code>&amp;local</code> from a function wrong?</h4>
+        <button data-target="q21" data-answer="right" data-feedback="Correct. The local object lifetime ends when the function returns.">It points to dead stack storage</button>
+        <button data-target="q21" data-answer="wrong" data-feedback="No. The issue is lifetime, not const.">It needs const</button>
+        <button data-target="q21" data-answer="wrong" data-feedback="No. Pointers can be returned if they point to valid storage.">C cannot return pointers</button>
+        <div class="feedback" id="q21"></div>
+      </div>
+      <div class="question">
+        <h4>22. What should a driver callback document?</h4>
+        <button data-target="q22" data-answer="right" data-feedback="Correct. ISR context determines what the callback may safely do.">Whether it runs in ISR context</button>
+        <button data-target="q22" data-answer="wrong" data-feedback="No. Register allocation is a compiler detail.">Which CPU register holds each argument</button>
+        <button data-target="q22" data-answer="wrong" data-feedback="No. Local variable names are not API contracts.">Every local variable name</button>
+        <div class="feedback" id="q22"></div>
+      </div>
+      <div class="question">
+        <h4>23. What is risky about a large local array on an MCU?</h4>
+        <button data-target="q23" data-answer="right" data-feedback="Correct. MCU stacks are often small and overflow may be hard to diagnose.">Stack overflow</button>
+        <button data-target="q23" data-answer="wrong" data-feedback="No. Arrays are legal.">Arrays cannot be local</button>
+        <button data-target="q23" data-answer="wrong" data-feedback="No. This is not about volatile.">It must be volatile</button>
+        <div class="feedback" id="q23"></div>
+      </div>
+      <div class="question">
+        <h4>24. Why put units in names like <code>timeout_ms</code>?</h4>
+        <button data-target="q24" data-answer="right" data-feedback="Correct. Unit errors are common and expensive in firmware.">Prevents unit confusion</button>
+        <button data-target="q24" data-answer="wrong" data-feedback="No. Names do not affect CPU speed.">Makes the CPU faster</button>
+        <button data-target="q24" data-answer="wrong" data-feedback="No. It is still an integer type.">Turns it into a float</button>
+        <div class="feedback" id="q24"></div>
+      </div>
+    </section>
+  </section>
+
+  <section id="summary">
+    <h2>Summary and checklist</h2>
+    <div class="summary-card">
+      <h3>The embedded C declaration checklist</h3>
+      <ol>
+        <li><strong>Role:</strong> data, size, address, output storage, state, physical value, hardware access, or synchronization boundary?</li>
+        <li><strong>Range:</strong> what are the valid min/max values, and what happens at the boundary?</li>
+        <li><strong>Representation:</strong> is the bit width externally visible in a packet, register, flash image, or ABI?</li>
+        <li><strong>Signedness:</strong> are negative values meaningful? Are you mixing signed and unsigned values?</li>
+        <li><strong>Units:</strong> does the name say <code>ms</code>, <code>hz</code>, <code>mv</code>, <code>mdeg_c</code>, <code>ticks</code>, or <code>bytes</code>?</li>
+        <li><strong>Lifetime:</strong> stack, static, heap, linker section, caller-owned, or persistent borrowed pointer?</li>
+        <li><strong>Layout:</strong> can padding, alignment, endian, or bit-field order leak across a boundary?</li>
+        <li><strong>Concurrency:</strong> who else can touch it: ISR, task, DMA, other core, hardware?</li>
+        <li><strong>Toolchain:</strong> does this depend on compiler flags, ABI, FPU, library configuration, or vendor extensions?</li>
+        <li><strong>Failure:</strong> if this goes wrong, can the caller detect and recover?</li>
+      </ol>
+    </div>
+
+    <h3>One-page type choice guide</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Need</th>
+          <th>Default choice</th>
+          <th>Do not use</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Packet byte</td><td><code>uint8_t</code></td><td><code>char</code> unless it is text</td></tr>
+        <tr><td>Buffer length/capacity</td><td><code>size_t</code></td><td><code>uint8_t</code> by habit</td></tr>
+        <tr><td>Exact 16-bit wire field</td><td><code>uint16_t</code> + explicit endian decode</td><td>casted struct pointer</td></tr>
+        <tr><td>Physical voltage storage</td><td><code>uint16_t battery_mv</code> or <code>uint32_t</code> if range needs it</td><td>unitless <code>int</code></td></tr>
+        <tr><td>Fractional control math</td><td><code>float</code> if target supports it acceptably</td><td><code>double</code> by accident</td></tr>
+        <tr><td>Register access</td><td>vendor/CMSIS register type with <code>volatile</code></td><td>plain pointer to RAM-like object</td></tr>
+        <tr><td>Task-to-task data</td><td>queue, mutex, notification, ownership transfer</td><td>bare <code>volatile</code> global</td></tr>
+        <tr><td>Internal mode/state</td><td><code>enum</code></td><td>magic numbers</td></tr>
+        <tr><td>Private helper</td><td>file-scope <code>static</code></td><td>unnecessary external symbol</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Final rule</h3>
+    <p>
+      Do not ask “what C type do I normally use?” Ask:
+      <strong>what contract am I writing between the code, the compiler, the hardware, and the caller?</strong>
+    </p>
+  </section>
+
+  <section id="sources">
+    <h2>Source map</h2>
+    <p>
+      Use these as the reference trail behind the lesson. cppreference is not the C standard itself, but it is a
+      practical indexed reference. For certification work, use the actual language standard and your project’s
+      approved coding standard.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Topic</th>
+          <th>Source</th>
+          <th>Used for</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Fixed-width, least, fast, pointer integer types</td>
+          <td><a href="https://en.cppreference.com/c/types/integer">cppreference: fixed-width integer types</a></td>
+          <td><code>uint8_t</code>, <code>int_fastN_t</code>, <code>uintptr_t</code>, optional exact-width caveat.</td>
+        </tr>
+        <tr>
+          <td><code>size_t</code></td>
+          <td><a href="https://en.cppreference.com/c/types/size_t">cppreference: size_t</a></td>
+          <td>Object sizes and indexing.</td>
+        </tr>
+        <tr>
+          <td>Integer conversion and overflow rules</td>
+          <td><a href="https://cmu-sei.github.io/secure-coding-standards/sei-cert-c-coding-standard/rules/integers-int/int30-c/">SEI CERT C INT30-C</a>, <a href="https://cmu-sei.github.io/secure-coding-standards/sei-cert-c-coding-standard/rules/integers-int/int32-c/">SEI CERT C INT32-C</a></td>
+          <td>Unsigned wrap, signed overflow, defensive size arithmetic.</td>
+        </tr>
+        <tr>
+          <td>Floating-point limits</td>
+          <td><a href="https://en.cppreference.com/c/header/float">cppreference: &lt;float.h&gt;</a></td>
+          <td><code>FLT_EPSILON</code>, decimal digits, min/max, special values.</td>
+        </tr>
+        <tr>
+          <td>Floating loop counter rule</td>
+          <td><a href="https://cmu-sei.github.io/secure-coding-standards/sei-cert-c-coding-standard/rules/floating-point-flp/flp30-c/">SEI CERT C FLP30-C</a></td>
+          <td>Why integer loop counters should drive fractional values.</td>
+        </tr>
+        <tr>
+          <td>Arm/GCC floating ABI options</td>
+          <td><a href="https://gcc.gnu.org/onlinedocs/gcc/ARM-Options.html">GCC ARM options</a></td>
+          <td>Hard/soft float ABI compatibility warning.</td>
+        </tr>
+        <tr>
+          <td>Object layout and alignment</td>
+          <td><a href="https://en.cppreference.com/c/language/object">cppreference: objects and alignment</a></td>
+          <td>Alignment requirements, object representation, over-alignment caveats.</td>
+        </tr>
+        <tr>
+          <td>Bit-fields</td>
+          <td><a href="https://en.cppreference.com/c/language/bit_field">cppreference: bit-fields</a></td>
+          <td>Implementation-defined bit-field layout warnings.</td>
+        </tr>
+        <tr>
+          <td>Volatile</td>
+          <td><a href="https://en.cppreference.com/c/language/volatile">cppreference: volatile qualifier</a></td>
+          <td>Volatile access semantics and limits.</td>
+        </tr>
+        <tr>
+          <td>Atomics</td>
+          <td><a href="https://en.cppreference.com/c/language/atomic">cppreference: atomic types</a></td>
+          <td>C11 atomic concepts and caution around embedded toolchain support.</td>
+        </tr>
+        <tr>
+          <td>Restrict</td>
+          <td><a href="https://en.cppreference.com/c/language/restrict">cppreference: restrict</a></td>
+          <td>No-alias pointer contract.</td>
+        </tr>
+        <tr>
+          <td>CMSIS peripheral access</td>
+          <td><a href="https://arm-software.github.io/CMSIS_5/Core_A/html/group__peripheral__gr.html">Arm CMSIS peripheral access</a></td>
+          <td>Device headers, CMSIS-SVD, peripheral register naming conventions.</td>
+        </tr>
+        <tr>
+          <td>Compiler barrier</td>
+          <td><a href="https://gcc.gnu.org/onlinedocs/gcc/Extended-Asm.html">GCC extended asm memory clobber</a></td>
+          <td>Difference between compiler barrier and processor fence.</td>
+        </tr>
+        <tr>
+          <td>RTOS synchronization</td>
+          <td><a href="https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/03-Direct-to-task-notifications/01-Task-notifications">FreeRTOS task notifications</a></td>
+          <td>ISR/task signaling and scheduler-aware synchronization.</td>
+        </tr>
+        <tr>
+          <td>Embedded coding standards</td>
+          <td><a href="https://misra.org.uk/">MISRA</a>, <a href="https://arxiv.org/abs/1809.00821">MISRA C role paper</a>, <a href="https://ldra.com/barr-c/">BARR-C overview</a></td>
+          <td>Safety/security coding-standard context for embedded C.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+
+<script>
+  document.querySelectorAll("button[data-target]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const node = document.getElementById(button.dataset.target);
+      node.textContent = button.dataset.feedback;
+      node.className = "feedback " + (button.dataset.answer === "right" ? "ok" : "no");
+    });
+  });
+</script>
+</body>
+</html>

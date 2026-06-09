@@ -21,17 +21,73 @@ typedef struct {
 
 static uint8_t obc_checksum(const uint8_t *bytes, size_t len)
 {
-    (void)bytes;
-    (void)len;
-    return 0u;
+    uint8_t count = 0;
+
+    size_t i;
+    for (i = 0; i < len; i++){
+        count += bytes[i];
+    }
+
+
+    return count;
 }
 
 static bool obc_parse_frame(const uint8_t *frame, size_t frame_len, ObcPacket *out)
 {
-    (void)frame;
-    (void)frame_len;
-    (void)out;
-    return false;
+
+
+    if (frame == NULL || out == NULL)
+    {
+        return false;
+    }
+
+    if (frame_len < OBC_MIN_FRAME_LEN)
+    {
+        return false;
+    }
+
+    if (frame[0] != OBC_SOF0 || frame[1] != OBC_SOF1)
+    {
+        return false;
+    }
+
+    uint8_t payload_len = frame[3];
+
+    if (payload_len > OBC_MAX_PAYLOAD_LEN)
+    {
+        return false;
+    }
+
+    size_t expected_frame_len = OBC_FIXED_HEADER_LEN + OBC_CHECKSUM_LEN + payload_len;
+
+    if (frame_len != expected_frame_len)
+    {
+        return false;
+    }
+
+    size_t checksum_index   = frame_len - OBC_CHECKSUM_LEN;
+    uint8_t checksum        = frame[checksum_index];
+
+    if (obc_checksum(&frame[2], 2u + payload_len) != checksum)
+    {
+        return false;
+    }
+
+
+    out->msg_id         = frame[2];
+    out->payload_len    = frame[3];
+
+    size_t i;
+    size_t out_index = 0;
+    for (i = 4; i < checksum_index; i ++)
+    {
+        out->payload[out_index] = frame[i];
+        out_index ++;
+    }
+
+    return true;
+
+
 }
 
 int main(void)

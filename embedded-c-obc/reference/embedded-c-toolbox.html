@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Embedded C Toolbox - Quick Reference</title>
+  <style>
+    :root {
+      --ink: #12202b;
+      --muted: #52606f;
+      --line: #d5dde8;
+      --panel: #f7f9fc;
+      --accent: #0f766e;
+      --warn: #9a3412;
+    }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: white;
+      font: 16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 32px 24px 48px;
+    }
+    h1 {
+      margin: 0 0 12px;
+      padding-bottom: 12px;
+      border-bottom: 3px solid var(--accent);
+      font-size: 34px;
+      line-height: 1.1;
+    }
+    h2 {
+      margin: 28px 0 10px;
+      font-size: 21px;
+    }
+    p, li { max-width: 78ch; }
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+    pre {
+      overflow-x: auto;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--panel); }
+    .box {
+      margin: 16px 0;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--accent);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    .warn { border-left-color: var(--warn); }
+    @media print {
+      main { padding: 18mm; }
+      .box, pre, table { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Embedded C Toolbox</h1>
+    <p>
+      A compact reference for choosing C types and qualifiers in OBC-style firmware.
+    </p>
+
+    <h2>Declare By Job</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Job</th>
+          <th>Usual tool</th>
+          <th>Example</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>One byte of protocol/register data</td><td><code>uint8_t</code></td><td><code>uint8_t checksum;</code></td></tr>
+        <tr><td>Known-width unsigned field</td><td><code>uint16_t</code>, <code>uint32_t</code></td><td><code>uint32_t status_word;</code></td></tr>
+        <tr><td>Signed sensor reading</td><td><code>int16_t</code>, <code>int32_t</code></td><td><code>int16_t accel_raw;</code></td></tr>
+        <tr><td>Length, size, or index</td><td><code>size_t</code></td><td><code>size_t frame_len;</code></td></tr>
+        <tr><td>True/false result</td><td><code>bool</code></td><td><code>bool parse_ok;</code></td></tr>
+        <tr><td>Start address of bytes</td><td>pointer</td><td><code>const uint8_t *frame</code></td></tr>
+        <tr><td>Actual fixed storage</td><td>array</td><td><code>uint8_t payload[8];</code></td></tr>
+        <tr><td>Grouped fields</td><td><code>struct</code></td><td><code>typedef struct { ... } ObcPacket;</code></td></tr>
+        <tr><td>Named constants/states</td><td><code>enum</code></td><td><code>enum { OBC_MAX_PAYLOAD_LEN = 8u };</code></td></tr>
+      </tbody>
+    </table>
+
+    <h2>Qualifiers And Control Words</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Tool</th>
+          <th>Meaning</th>
+          <th>Firmware posture</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>const</code></td><td>Read-only through this name.</td><td>Use on input buffers and tables you must not mutate.</td></tr>
+        <tr><td><code>volatile</code></td><td>Each access is hardware/compiler-visible.</td><td>Use for memory-mapped registers, not synchronization.</td></tr>
+        <tr><td><code>static</code></td><td>File-private at file scope; static lifetime inside functions.</td><td>Use for private helpers and module-local state.</td></tr>
+        <tr><td><code>_Atomic</code></td><td>Atomic object for C11 concurrency.</td><td>Use only with platform/toolchain understanding; often RTOS primitives are clearer.</td></tr>
+        <tr><td><code>restrict</code></td><td>No-alias promise for pointer-accessed objects.</td><td>Avoid until you can prove the contract.</td></tr>
+        <tr><td><code>NULL</code></td><td>Pointer to no object.</td><td>Check before dereferencing API pointer inputs.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="box warn">
+      <p>
+        <strong>Review rule:</strong> <code>uint8_t</code> is data. <code>size_t</code> is how much data.
+        A pointer is where data starts. An array is storage. <code>volatile</code> is hardware visibility.
+      </p>
+    </div>
+
+    <h2>Parser Pattern</h2>
+    <pre><code>static bool parse(const uint8_t *frame, size_t frame_len, Packet *out)
+{
+    if (frame == NULL || out == NULL) {
+        return false;
+    }
+
+    if (frame_len &lt; MIN_FRAME_LEN) {
+        return false;
+    }
+
+    /* Now fixed indexes proven by MIN_FRAME_LEN may be read. */
+}</code></pre>
+
+    <h2>Sources</h2>
+    <ul>
+      <li><a href="https://en.cppreference.com/c/types/integer">cppreference: fixed-width integer types</a></li>
+      <li><a href="https://en.cppreference.com/c/types/size_t">cppreference: size_t</a></li>
+      <li><a href="https://en.cppreference.com/c/language/volatile">cppreference: volatile qualifier</a></li>
+      <li><a href="https://en.cppreference.com/c/language/atomic">cppreference: atomic types</a></li>
+      <li><a href="https://en.cppreference.com/c/language/restrict">cppreference: restrict qualifier</a></li>
+      <li><a href="https://wiki.sei.cmu.edu/confluence/display/c/INT02-C.%2BUnderstand%2Binteger%2Bconversion%2Brules">SEI CERT C INT02-C</a></li>
+    </ul>
+  </main>
+</body>
+</html>

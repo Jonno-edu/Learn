@@ -7,6 +7,18 @@ This is the quick dictionary for terms learned in the lessons. Keep definitions 
 **`volatile`**
 : A C qualifier that tells the compiler an object may change outside normal C code, so each volatile access matters. Use for memory-mapped hardware registers. It is not a mutex, atomic, or FreeRTOS synchronization tool.
 
+**`const`**
+: A qualifier that prevents modification through that name. Use for read-only input buffers, tables, and protocol constants. It does not mean the underlying object can never change through any other path.
+
+**`static`**
+: At file scope, makes a function or object private to that C file. Inside a function, gives an object static lifetime so it keeps its value between calls.
+
+**`_Atomic`**
+: A C11 type specifier/qualifier for atomic objects. Use only when the toolchain, target, and concurrency model are understood; it is different from `volatile`.
+
+**`restrict`**
+: A pointer qualifier that promises the object modified through that pointer is not accessed through another pointer path in the same block. Breaking that promise can cause undefined behavior.
+
 **memory-mapped register**
 : A hardware register exposed at an address that C code can read or write as if it were memory. Reads and writes may trigger hardware behavior.
 
@@ -62,11 +74,38 @@ This is the quick dictionary for terms learned in the lessons. Keep definitions 
 **fixed-width integer**
 : A type from `<stdint.h>` with an explicit size, such as `uint8_t`, `uint16_t`, `uint32_t`, or `int16_t`.
 
+**`uint8_t`**
+: An unsigned 8-bit integer. Use for one byte of protocol, register, payload, or checksum data.
+
+**`uint16_t`**
+: An unsigned 16-bit integer. Use for two-byte raw fields, counters with known range, or packed unsigned values.
+
+**`uint32_t`**
+: An unsigned 32-bit integer. Use for 32-bit registers, masks, counters, and wider unsigned intermediate values.
+
+**`int16_t`**
+: A signed 16-bit integer. Use for raw signed sensor values when the protocol or datasheet says the field is signed 16-bit.
+
+**`int32_t`**
+: A signed 32-bit integer. Use for wider signed arithmetic, especially before scaling or combining smaller signed values.
+
 **two's complement**
 : The representation used by modern C targets for signed integers, where a set top bit indicates a negative value. Example: the 16-bit pattern `0xff38` represents `-200` when interpreted as `int16_t`.
 
 **`size_t`**
 : An unsigned type used for object sizes and array lengths. Use it for buffer lengths and indexes into byte arrays.
+
+**pointer**
+: A C value that holds the address of an object or the start of a buffer. Example: `const uint8_t *frame` points to the first byte the parser may read.
+
+**array**
+: Actual contiguous storage for a fixed number of elements. Example: `uint8_t payload[8]` stores eight payload bytes inside a packet struct.
+
+**struct**
+: A C type that groups related fields into one object, such as an OBC packet with message ID, payload length, and payload bytes.
+
+**enum**
+: A C construct for named integer constants. Useful for protocol constants, states, and fixed limits.
 
 **bounds check**
 : A check that proves an index or copy length stays inside the available buffer before accessing memory.

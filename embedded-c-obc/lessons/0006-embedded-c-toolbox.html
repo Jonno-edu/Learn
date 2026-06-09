@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0006 - Embedded C Toolbox</title>
+  <style>
+    :root {
+      --ink: #17202a;
+      --muted: #596677;
+      --line: #d7dee8;
+      --panel: #f7f9fc;
+      --accent: #0f766e;
+      --accent-soft: #e0f4ef;
+      --warn: #9a3412;
+      --warn-soft: #fff3e8;
+      --good: #166534;
+      --bad: #9f1239;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: white;
+      font: 16px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 36px 24px 56px;
+    }
+    header {
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--line);
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 38px;
+      line-height: 1.08;
+    }
+    h2 {
+      margin: 30px 0 10px;
+      font-size: 23px;
+    }
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 17px;
+    }
+    p, li { max-width: 80ch; }
+    .lede {
+      color: var(--muted);
+      font-size: 18px;
+      max-width: 76ch;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .tile {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    .callout {
+      margin: 16px 0;
+      padding: 14px 16px;
+      border-left: 5px solid var(--accent);
+      background: var(--accent-soft);
+    }
+    .warn {
+      border-left-color: var(--warn);
+      background: var(--warn-soft);
+    }
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+    pre {
+      overflow-x: auto;
+      padding: 16px;
+      border-radius: 8px;
+      background: #101827;
+      color: #e5e7eb;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--panel); }
+    button {
+      margin: 4px 6px 4px 0;
+      padding: 8px 11px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      background: white;
+      color: var(--accent);
+      font: inherit;
+      cursor: pointer;
+    }
+    button:hover, button:focus {
+      background: var(--accent-soft);
+      outline: none;
+    }
+    .feedback {
+      min-height: 28px;
+      margin-top: 8px;
+      font-weight: 650;
+    }
+    .ok { color: var(--good); }
+    .no { color: var(--bad); }
+    a { color: #0f766e; }
+    @media (max-width: 760px) {
+      .grid { grid-template-columns: 1fr; }
+      h1 { font-size: 32px; }
+    }
+    @media print {
+      main { padding: 18mm; }
+      button, .feedback { display: none; }
+      .tile, .callout, pre, table { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Lesson 0006: Embedded C Toolbox</h1>
+      <p class="lede">
+        Firmware C gets easier when every declaration answers one question: is this a byte of data,
+        a count, an address, a hardware-visible object, or a shared/concurrent value?
+      </p>
+    </header>
+
+    <section>
+      <h2>The One Thing</h2>
+      <p>
+        Pick C types by the job they do in the firmware, not by habit. A byte from a packet is different
+        from a buffer length. A memory-mapped register is different from a normal variable. A shared flag
+        is different from a hardware register.
+      </p>
+      <div class="callout">
+        <strong>OBC habit:</strong> when you declare a variable, say out loud whether it is data, a size,
+        an address, a hardware access, or a synchronization boundary.
+      </div>
+    </section>
+
+    <section>
+      <h2>The Core Toolbox</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Tool</th>
+            <th>Use it for</th>
+            <th>Firmware example</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>uint8_t</code></td>
+            <td>One unsigned byte of actual data.</td>
+            <td>Packet byte, register byte, checksum, payload element.</td>
+          </tr>
+          <tr>
+            <td><code>uint16_t</code>, <code>uint32_t</code></td>
+            <td>Known-width unsigned fields and registers.</td>
+            <td>ADC count, packed sensor field, 32-bit status register.</td>
+          </tr>
+          <tr>
+            <td><code>int16_t</code>, <code>int32_t</code></td>
+            <td>Signed sensor values and wider signed math.</td>
+            <td>Accelerometer raw reading, scaled intermediate calculation.</td>
+          </tr>
+          <tr>
+            <td><code>size_t</code></td>
+            <td>Object sizes, buffer lengths, and array indexes.</td>
+            <td><code>frame_len</code>, <code>payload_index</code>, loop counter over bytes.</td>
+          </tr>
+          <tr>
+            <td><code>bool</code></td>
+            <td>A true/false result, state, or predicate.</td>
+            <td><code>sensor_ready</code>, <code>parse_ok</code>, <code>armed</code>.</td>
+          </tr>
+          <tr>
+            <td>Pointer</td>
+            <td>Where an object or buffer begins.</td>
+            <td><code>const uint8_t *frame</code> points at incoming bytes.</td>
+          </tr>
+          <tr>
+            <td>Array</td>
+            <td>Actual storage for a fixed number of elements.</td>
+            <td><code>uint8_t payload[8]</code> stores copied payload bytes.</td>
+          </tr>
+          <tr>
+            <td><code>struct</code></td>
+            <td>A named group of related fields.</td>
+            <td><code>ObcPacket</code> groups message ID, length, and payload.</td>
+          </tr>
+          <tr>
+            <td><code>enum</code></td>
+            <td>Named integer constants.</td>
+            <td>Flight modes, parser states, command IDs, fixed protocol constants.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Qualifiers And Storage Words</h2>
+      <div class="grid">
+        <div class="tile">
+          <h3><code>const</code></h3>
+          <p>
+            Read-only through this name. Use it for lookup tables, protocol constants, and input buffers
+            the function must not mutate.
+          </p>
+          <pre><code>bool parse_frame(const uint8_t *frame, size_t frame_len);</code></pre>
+        </div>
+        <div class="tile">
+          <h3><code>volatile</code></h3>
+          <p>
+            Every access matters to the compiler. Use for memory-mapped hardware registers. Do not use it
+            as a mutex, atomic, or FreeRTOS synchronization replacement.
+          </p>
+          <pre><code>volatile uint32_t * const status_reg = REG_STATUS;</code></pre>
+        </div>
+        <div class="tile">
+          <h3><code>static</code></h3>
+          <p>
+            At file scope, hides a function or object from other translation units. Inside a function,
+            gives an object static lifetime. In firmware, prefer file-scope <code>static</code> helpers
+            when they are private to a module.
+          </p>
+          <pre><code>static uint8_t checksum(const uint8_t *bytes, size_t len);</code></pre>
+        </div>
+        <div class="tile">
+          <h3><code>_Atomic</code> / <code>atomic_*</code></h3>
+          <p>
+            C11 atomic objects avoid data races between threads. In RTOS firmware, confirm toolchain and
+            platform support before using them instead of the RTOS primitives.
+          </p>
+          <pre><code>#include &lt;stdatomic.h&gt;
+atomic_bool telemetry_ready;</code></pre>
+        </div>
+        <div class="tile">
+          <h3><code>restrict</code></h3>
+          <p>
+            A promise that a modified object is accessed only through that pointer path. Powerful for
+            optimization, risky if you cannot prove the no-alias contract.
+          </p>
+          <pre><code>void copy(size_t n, uint8_t * restrict dst,
+          const uint8_t * restrict src);</code></pre>
+        </div>
+        <div class="tile">
+          <h3><code>NULL</code></h3>
+          <p>
+            A pointer value meaning "points at no object." Check it before dereferencing API inputs from
+            callers, drivers, or test harnesses.
+          </p>
+          <pre><code>if (frame == NULL || out == NULL) {
+    return false;
+}</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Three Declarations From The Parser</h2>
+      <pre><code>static bool obc_parse_frame(const uint8_t *frame,
+                            size_t frame_len,
+                            ObcPacket *out);</code></pre>
+      <table>
+        <thead>
+          <tr>
+            <th>Part</th>
+            <th>Meaning</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>const uint8_t *frame</code></td>
+            <td>The caller gives us a starting address for read-only bytes.</td>
+          </tr>
+          <tr>
+            <td><code>size_t frame_len</code></td>
+            <td>The caller tells us how many bytes are valid from that starting address.</td>
+          </tr>
+          <tr>
+            <td><code>ObcPacket *out</code></td>
+            <td>The caller gives us an address where we may write the parsed result after validation.</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout warn">
+        <strong>Parser trap:</strong> inside a function, an array parameter is already pointer-like. Do not
+        use <code>sizeof(frame)</code> to discover the original caller's array length. Carry the length in a
+        separate <code>size_t</code> parameter.
+      </div>
+    </section>
+
+    <section class="tile">
+      <h2>Quick Check</h2>
+      <h3>1. Which type should hold the number of bytes in a received frame?</h3>
+      <button data-target="q1" data-answer="wrong" data-feedback="No. uint8_t is one byte of data; a frame length is a size.">uint8_t</button>
+      <button data-target="q1" data-answer="right" data-feedback="Correct. size_t is the normal C type for sizes and indexes.">size_t</button>
+      <button data-target="q1" data-answer="wrong" data-feedback="No. bool is for true/false state, not counts.">bool</button>
+      <div class="feedback" id="q1"></div>
+
+      <h3>2. Which tool belongs on a memory-mapped hardware register?</h3>
+      <button data-target="q2" data-answer="wrong" data-feedback="No. const can prevent writes through this name, but it does not make hardware accesses observable.">const</button>
+      <button data-target="q2" data-answer="right" data-feedback="Correct. volatile tells the compiler that each hardware-visible access matters.">volatile</button>
+      <button data-target="q2" data-answer="wrong" data-feedback="No. restrict is an aliasing promise for pointers, not a hardware-access marker.">restrict</button>
+      <div class="feedback" id="q2"></div>
+
+      <h3>3. In <code>obc_checksum(&amp;frame[2], 2u + payload_len)</code>, what does <code>&amp;frame[2]</code> mean?</h3>
+      <button data-target="q3" data-answer="right" data-feedback="Correct. It passes a pointer that starts at the msg_id byte.">Start reading at frame index 2</button>
+      <button data-target="q3" data-answer="wrong" data-feedback="No. It does not copy bytes; it passes an address.">Copy frame index 2 into a new buffer</button>
+      <button data-target="q3" data-answer="wrong" data-feedback="No. The SOF bytes live at indexes 0 and 1.">Start reading at the SOF bytes</button>
+      <div class="feedback" id="q3"></div>
+    </section>
+
+    <section>
+      <h2>Review Drill</h2>
+      <p>
+        Open your Lesson 5 parser and read every declaration. For each one, label it with one of these:
+      </p>
+      <pre><code>data byte | size/index | address | output storage | hardware access | true/false result</code></pre>
+      <p>
+        If a declaration cannot be labeled clearly, ask me about it. That is usually where C confusion starts.
+      </p>
+    </section>
+
+    <section>
+      <h2>Sources</h2>
+      <ul>
+        <li><a href="https://en.cppreference.com/c/types/integer">cppreference: fixed-width integer types</a></li>
+        <li><a href="https://en.cppreference.com/c/types/size_t">cppreference: size_t</a></li>
+        <li><a href="https://en.cppreference.com/c/language/volatile">cppreference: volatile qualifier</a></li>
+        <li><a href="https://en.cppreference.com/c/language/atomic">cppreference: atomic types</a></li>
+        <li><a href="https://en.cppreference.com/c/language/restrict">cppreference: restrict qualifier</a></li>
+        <li><a href="https://wiki.sei.cmu.edu/confluence/display/c/INT02-C.%2BUnderstand%2Binteger%2Bconversion%2Brules">SEI CERT C INT02-C</a></li>
+      </ul>
+    </section>
+  </main>
+
+  <script>
+    document.querySelectorAll("button[data-target]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const node = document.getElementById(button.dataset.target);
+        node.textContent = button.dataset.feedback;
+        node.className = "feedback " + (button.dataset.answer === "right" ? "ok" : "no");
+      });
+    });
+  </script>
+</body>
+</html>
