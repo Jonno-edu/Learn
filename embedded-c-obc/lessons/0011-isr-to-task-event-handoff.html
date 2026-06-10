@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0011 - ISR To Task Event Handoff</title>
+  <style>
+    :root { --ink:#18222f; --muted:#5c6878; --line:#d8e0ea; --panel:#f7f9fc; --accent:#0f766e; --accent-soft:#e0f4ef; --warn:#9a3412; --warn-soft:#fff3e8; --good:#166534; --bad:#9f1239; --code:#101827; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:white; font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { max-width:1080px; margin:0 auto; padding:36px 24px 56px; }
+    header { margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid var(--line); }
+    h1 { margin:0 0 10px; font-size:38px; line-height:1.08; }
+    h2 { margin:30px 0 10px; font-size:23px; }
+    h3 { margin:18px 0 8px; font-size:17px; }
+    p, li { max-width:82ch; }
+    .lede { color:var(--muted); font-size:18px; max-width:78ch; }
+    .callout { margin:16px 0; padding:14px 16px; border-left:5px solid var(--accent); background:var(--accent-soft); }
+    .warn { border-left-color:var(--warn); background:var(--warn-soft); }
+    code, pre, textarea { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:0.94em; }
+    pre { overflow-x:auto; padding:16px; border-radius:8px; background:var(--code); color:#e5e7eb; }
+    table { width:100%; border-collapse:collapse; margin:14px 0; }
+    th, td { padding:10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+    th { background:var(--panel); }
+    .panel { margin:16px 0; padding:18px; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+    button { margin:4px 6px 4px 0; padding:8px 11px; border:1px solid var(--accent); border-radius:6px; background:white; color:var(--accent); font:inherit; cursor:pointer; }
+    button:hover, button:focus { background:var(--accent-soft); outline:none; }
+    .feedback { min-height:28px; margin-top:8px; font-weight:650; }
+    .ok { color:var(--good); } .no { color:var(--bad); }
+    textarea { width:100%; min-height:128px; margin-top:10px; padding:10px; border:1px solid var(--line); border-radius:8px; background:white; color:var(--ink); }
+    a { color:#0f766e; }
+    @media print { main { padding:18mm; } button,.feedback,textarea,.quiz-actions { display:none; } .panel,.callout,pre,table { break-inside:avoid; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Lesson 0011: ISR To Task Event Handoff</h1>
+      <p class="lede">Before using FreeRTOS APIs, get the ownership rule right: interrupt code should report a small event, and one task should own the flight state machine.</p>
+    </header>
+
+    <section>
+      <h2>The One Thing</h2>
+      <p>An ISR-to-task handoff separates <strong>fast interrupt capture</strong> from <strong>normal task-level decision logic</strong>. The ISR posts a named event. The task receives it and dispatches the FSM.</p>
+      <div class="callout"><strong>OBC habit:</strong> keep ISRs short, non-blocking, and boring. Do not let an ISR mutate the flight FSM just because it noticed something important.</div>
+    </section>
+
+    <section>
+      <h2>Shape Before FreeRTOS</h2>
+      <p>This lesson uses a tiny host-testable bridge instead of real FreeRTOS. The shape is the point: later, the bridge can become a task notification or queue, but the ownership rule stays the same.</p>
+      <pre><code>void sensor_isr(void)
+{
+    (void)event_bridge_post_from_isr(&bridge,
+                                     FLIGHT_EVENT_APOGEE_DETECTED);
+}
+
+void flight_task_step(void)
+{
+    FlightEvent event;
+    if (event_bridge_take_for_task(&bridge, &event))
+    {
+        (void)flight_fsm_dispatch(&fsm, event);
+    }
+}</code></pre>
+    </section>
+
+    <section>
+      <h2>Who May Do What?</h2>
+      <table>
+        <thead><tr><th>Code</th><th>Allowed</th><th>Not allowed in this pattern</th></tr></thead>
+        <tbody>
+          <tr><td>ISR side</td><td>Capture the event and post it to the bridge.</td><td>Block, allocate, run long policy code, or mutate the FSM.</td></tr>
+          <tr><td>Task side</td><td>Take pending events and dispatch the FSM one at a time.</td><td>Assume every event is present forever; consume means consume.</td></tr>
+          <tr><td>FSM core</td><td>Apply transition policy as ordinary C.</td><td>Know whether the event came from an ISR, queue, test, or replay.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout warn"><strong>Review smell:</strong> if both an ISR and a task write <code>fsm.phase</code>, ownership is already unclear.</div>
+    </section>
+
+    <section>
+      <h2>Overflow Is A Policy</h2>
+      <p>A one-slot bridge can already contain a pending event. If a new event arrives before the task consumes the old one, the code must choose a policy deliberately.</p>
+      <table>
+        <thead><tr><th>Policy</th><th>When it can make sense</th><th>Risk</th></tr></thead>
+        <tbody>
+          <tr><td>Reject newest</td><td>The first event must be handled exactly once.</td><td>Later urgent events may be dropped.</td></tr>
+          <tr><td>Overwrite oldest</td><td>Only the latest sample/event matters.</td><td>A real transition event can disappear.</td></tr>
+          <tr><td>Use a queue</td><td>Multiple events must be preserved in order.</td><td>More memory and a full-queue policy still exists.</td></tr>
+        </tbody>
+      </table>
+      <p>The exercise uses <strong>reject newest and count drops</strong>. That makes lost events visible in tests.</p>
+    </section>
+
+    <section>
+      <h2>FreeRTOS Preview</h2>
+      <p>In real FreeRTOS, the bridge would usually be a task notification for a compact signal or a queue when event values must be buffered. ISR code uses the <code>FromISR</code> family of APIs where the port requires it.</p>
+      <pre><code>/* Later shape, not used in this exercise. */
+xQueueSendFromISR(flight_event_queue, &event, &higher_priority_task_woken);
+
+/* Task side owns the FSM. */
+if (xQueueReceive(flight_event_queue, &event, timeout_ticks) == pdPASS)
+{
+    (void)flight_fsm_dispatch(&fsm, event);
+}</code></pre>
+    </section>
+
+    <section class="panel">
+      <h2>Quick Check</h2>
+      <h3>1. Who should own the flight FSM context in this pattern?</h3>
+      <button data-question="q1" data-answer="wrong" data-feedback="No. The ISR can report events, but it should not own transition policy.">The ISR</button>
+      <button data-question="q1" data-answer="right" data-feedback="Correct. One task owns the FSM and dispatches events one at a time.">One task</button>
+      <button data-question="q1" data-answer="wrong" data-feedback="No. Shared mutation by everyone is the problem this pattern avoids.">Every producer</button>
+      <div class="feedback" id="q1"></div>
+
+      <h3>2. What should the ISR post?</h3>
+      <button data-question="q2" data-answer="right" data-feedback="Correct. A small named event is the handoff payload.">A named event</button>
+      <button data-question="q2" data-answer="wrong" data-feedback="No. Transition policy belongs with the FSM owner.">A full state transition</button>
+      <button data-question="q2" data-answer="wrong" data-feedback="No. Blocking work does not belong in a short ISR.">A long parser loop</button>
+      <div class="feedback" id="q2"></div>
+
+      <h3>3. What should happen if the bridge is already full?</h3>
+      <button data-question="q3" data-answer="wrong" data-feedback="No. Silent loss is hard to review and diagnose.">Silently ignore it</button>
+      <button data-question="q3" data-answer="right" data-feedback="Correct. Pick a policy and make it testable, such as rejecting and counting drops.">Apply a documented overflow policy</button>
+      <button data-question="q3" data-answer="wrong" data-feedback="No. Blocking in an ISR is not the right answer.">Wait until the task catches up</button>
+      <div class="feedback" id="q3"></div>
+
+      <div class="quiz-actions">
+        <h3>Quiz Record</h3>
+        <p>Use <strong>Export quiz record</strong> and paste the JSON back to me when you want review feedback.</p>
+        <button id="export-results" type="button">Export quiz record</button>
+        <button id="reset-results" type="button">Reset quiz record</button>
+        <textarea id="quiz-export" readonly aria-label="Quiz export"></textarea>
+      </div>
+    </section>
+
+    <section>
+      <h2>Practice</h2>
+      <p>Open <code>exercises/0011-isr-to-task-event-handoff/</code>. Implement the one-slot event bridge.</p>
+      <ol>
+        <li>Initialize the bridge into an empty state.</li>
+        <li>Let the ISR side post one event only when the slot is empty.</li>
+        <li>Let the task side take one pending event and clear the slot.</li>
+        <li>Count dropped events when the ISR side tries to post while full.</li>
+        <li>Run <code>rtk make test</code>.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Sources</h2>
+      <ul>
+        <li><a href="https://www.freertos.org/Documentation/02-Kernel/04-API-references/05-Direct-to-task-notifications/00-RTOS-task-notifications">FreeRTOS task notifications</a></li>
+        <li><a href="https://www.freertos.org/Documentation/02-Kernel/04-API-references/06-Queues/00-Queues">FreeRTOS queues</a></li>
+        <li><a href="https://spinroot.com/gerard/pdf/P10.pdf">The Power of Ten: Rules for Developing Safety-Critical Code</a></li>
+        <li><a href="https://nasa.github.io/fprime/UsersGuide/dev/code-style.html">NASA F Prime code and style guidelines</a></li>
+      </ul>
+    </section>
+  </main>
+  <script>
+    const storageKey = "embedded-c-obc-lesson-0011-quiz-v1";
+    const questions = { q1:"Who should own the flight FSM context in this pattern?", q2:"What should the ISR post?", q3:"What should happen if the bridge is already full?" };
+    function loadRecord(){ try { return JSON.parse(localStorage.getItem(storageKey)) || { lesson:"0011", attempts:[] }; } catch (_err) { return { lesson:"0011", attempts:[] }; } }
+    function saveRecord(record){ localStorage.setItem(storageKey, JSON.stringify(record)); }
+    function updateExport(){ const record=loadRecord(); const latest={}; for(const attempt of record.attempts){ latest[attempt.question_id]=attempt; } const summary={ lesson:"0011-isr-to-task-event-handoff", latest_answers:Object.keys(questions).map((id)=>({ question_id:id, question:questions[id], latest_correct:latest[id]?latest[id].correct:null, latest_answer:latest[id]?latest[id].answer_text:null })), attempts:record.attempts }; document.getElementById("quiz-export").value=JSON.stringify(summary,null,2); }
+    document.querySelectorAll("button[data-question]").forEach((button)=>{ button.addEventListener("click",()=>{ const id=button.dataset.question; const correct=button.dataset.answer==="right"; const feedback=document.getElementById(id); feedback.textContent=button.dataset.feedback; feedback.className=correct?"feedback ok":"feedback no"; const record=loadRecord(); record.attempts.push({ question_id:id, answer_text:button.textContent.trim(), correct, timestamp:new Date().toISOString() }); saveRecord(record); updateExport(); }); });
+    document.getElementById("export-results").addEventListener("click", updateExport);
+    document.getElementById("reset-results").addEventListener("click",()=>{ localStorage.removeItem(storageKey); updateExport(); document.querySelectorAll(".feedback").forEach((node)=>{ node.textContent=""; node.className="feedback"; }); });
+    updateExport();
+  </script>
+</body>
+</html>

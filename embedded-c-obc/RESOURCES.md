@@ -30,6 +30,8 @@
   Secure C rules and recommendations from CMU SEI. Use for: undefined behavior, unsafe conversions, object lifetime, defensive APIs, and review checklists.
 - [FreeRTOS task notification API reference](https://freertos.org/Documentation/02-Kernel/04-API-references/05-Direct-to-task-notifications/00-RTOS-task-notifications)
   Official FreeRTOS reference for lightweight task signaling. Use for: ISR-to-task and task-to-task communication once the C fundamentals reach RTOS boundaries.
+- [FreeRTOS queue API reference](https://www.freertos.org/Documentation/02-Kernel/04-API-references/06-Queues/00-Queues)
+  Official FreeRTOS reference for queue-based item passing. Use for: buffering flight events or sensor samples between ISR/task and task/task boundaries.
 - [NASA F Prime code and style guidelines](https://nasa.github.io/fprime/UsersGuide/dev/code-style.html)
   Flight-software-oriented guidance emphasizing readability, reviewability, bounded loops, avoiding recursion, controlled dynamic allocation, and checked return values. Use for: aerospace coding posture and review standards.
 - [NASA cFS repository and documentation links](https://github.com/nasa/cFS)

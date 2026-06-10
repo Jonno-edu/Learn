@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ISR To Task Event Handoff - Quick Reference</title>
+  <style>
+    :root { --ink:#12202b; --line:#d5dde8; --panel:#f7f9fc; --accent:#0f766e; --warn:#9a3412; }
+    body { margin:0; color:var(--ink); background:white; font:16px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { max-width:980px; margin:0 auto; padding:32px 24px 48px; }
+    h1 { margin:0 0 12px; padding-bottom:12px; border-bottom:3px solid var(--accent); font-size:34px; line-height:1.1; }
+    h2 { margin:28px 0 10px; font-size:21px; }
+    p, li { max-width:78ch; }
+    code, pre { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:0.94em; }
+    pre { overflow-x:auto; padding:14px; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+    .box { margin:16px 0; padding:14px; border:1px solid var(--line); border-left:5px solid var(--accent); border-radius:8px; background:var(--panel); }
+    .warn { border-left-color:var(--warn); }
+    @media print { main { padding:18mm; } .box,pre { break-inside:avoid; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>ISR To Task Event Handoff</h1>
+    <p>A reference for moving flight events from interrupt context into one task-owned state machine.</p>
+
+    <h2>Default Shape</h2>
+    <pre><code>/* ISR side: capture and signal. */
+(void)event_bridge_post_from_isr(&bridge, FLIGHT_EVENT_APOGEE_DETECTED);
+
+/* Task side: consume and dispatch. */
+FlightEvent event;
+if (event_bridge_take_for_task(&bridge, &event))
+{
+    (void)flight_fsm_dispatch(&fsm, event);
+}</code></pre>
+
+    <h2>Rules</h2>
+    <ul>
+      <li>One task owns the FSM context.</li>
+      <li>ISR code posts small named events only.</li>
+      <li>Do not block, allocate, or run transition policy in an ISR.</li>
+      <li>Make the full/overflow policy explicit and testable.</li>
+      <li>Use FreeRTOS <code>FromISR</code> APIs when using real kernel objects from interrupt context.</li>
+      <li>Use a queue when event values must be buffered in order; use a task notification when a compact signal is enough.</li>
+    </ul>
+
+    <div class="box warn">
+      <p>If multiple execution contexts write the same FSM state, stop and define ownership before adding more RTOS primitives.</p>
+    </div>
+
+    <h2>Sources</h2>
+    <ul>
+      <li><a href="https://www.freertos.org/Documentation/02-Kernel/04-API-references/05-Direct-to-task-notifications/00-RTOS-task-notifications">FreeRTOS task notifications</a></li>
+      <li><a href="https://www.freertos.org/Documentation/02-Kernel/04-API-references/06-Queues/00-Queues">FreeRTOS queues</a></li>
+      <li><a href="https://spinroot.com/gerard/pdf/P10.pdf">The Power of Ten</a></li>
+    </ul>
+  </main>
+</body>
+</html>

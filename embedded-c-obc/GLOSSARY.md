@@ -159,3 +159,23 @@ This is the quick dictionary for terms learned in the lessons. Keep definitions 
 
 **transition**
 : A deliberate change from one state to another in response to an event or condition.
+
+## RTOS Boundary
+
+**ISR**
+: Interrupt service routine. Code that runs in interrupt context in response to hardware or timing events. Keep it short and avoid blocking work.
+
+**task**
+: A schedulable FreeRTOS thread of execution. In this workspace, a task should usually own long-running module state such as the flight FSM context.
+
+**task notification**
+: A lightweight FreeRTOS mechanism for signaling a specific task. Useful when a compact event or wakeup is enough.
+
+**queue**
+: A FreeRTOS object for passing items between tasks or from an ISR to a task. Use when event values or samples must be buffered in order.
+
+**FromISR API**
+: A FreeRTOS API variant intended for interrupt context, such as queue send or task notification functions with `FromISR` in the name.
+
+**overflow policy**
+: The documented behavior when an event bridge, queue, or buffer is full, such as reject newest, overwrite oldest, or count drops.
