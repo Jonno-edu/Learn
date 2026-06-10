@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0007 - Pack IMU Telemetry</title>
+  <style>
+    :root {
+      --ink: #17202a;
+      --muted: #596677;
+      --line: #d7dee8;
+      --panel: #f7f9fc;
+      --accent: #0f766e;
+      --accent-soft: #e0f4ef;
+      --warn: #9a3412;
+      --warn-soft: #fff3e8;
+      --good: #166534;
+      --bad: #9f1239;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: white;
+      font: 16px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 36px 24px 56px;
+    }
+    header {
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--line);
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 38px;
+      line-height: 1.08;
+    }
+    h2 {
+      margin: 30px 0 10px;
+      font-size: 23px;
+    }
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 17px;
+    }
+    p, li { max-width: 82ch; }
+    .lede {
+      color: var(--muted);
+      font-size: 18px;
+      max-width: 78ch;
+    }
+    .callout {
+      margin: 16px 0;
+      padding: 14px 16px;
+      border-left: 5px solid var(--accent);
+      background: var(--accent-soft);
+    }
+    .warn {
+      border-left-color: var(--warn);
+      background: var(--warn-soft);
+    }
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+    pre {
+      overflow-x: auto;
+      padding: 16px;
+      border-radius: 8px;
+      background: #101827;
+      color: #e5e7eb;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--panel); }
+    .panel {
+      margin: 16px 0;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    button {
+      margin: 4px 6px 4px 0;
+      padding: 8px 11px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      background: white;
+      color: var(--accent);
+      font: inherit;
+      cursor: pointer;
+    }
+    button:hover, button:focus {
+      background: var(--accent-soft);
+      outline: none;
+    }
+    .feedback {
+      min-height: 28px;
+      margin-top: 8px;
+      font-weight: 650;
+    }
+    .ok { color: var(--good); }
+    .no { color: var(--bad); }
+    a { color: #0f766e; }
+    @media print {
+      main { padding: 18mm; }
+      button, .feedback { display: none; }
+      .panel, .callout, pre, table { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Lesson 0007: Pack IMU Telemetry</h1>
+      <p class="lede">
+        A sensor struct is typed C data. A telemetry packet is bytes. This lesson teaches the careful
+        translation between them without overrunning the caller's output buffer.
+      </p>
+    </header>
+
+    <section>
+      <h2>The One Thing</h2>
+      <p>
+        An array owns storage. A pointer points at storage. A length tells you how much storage is valid.
+        A packet-packing function must use all three facts before writing bytes.
+      </p>
+      <div class="callout">
+        <strong>OBC habit:</strong> before writing <code>out_frame[i]</code>, prove <code>out_capacity</code>
+        is large enough for the whole frame.
+      </div>
+    </section>
+
+    <section>
+      <h2>The Function Contract</h2>
+      <pre><code>bool pack_imu_packet(const ImuSample *imu,
+                     FlightState state,
+                     uint8_t *out_frame,
+                     size_t out_capacity,
+                     size_t *out_len);</code></pre>
+      <table>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Contract</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><code>const ImuSample *imu</code></td><td>Address of read-only typed sensor data.</td></tr>
+          <tr><td><code>FlightState state</code></td><td>Named flight state to encode as one byte.</td></tr>
+          <tr><td><code>uint8_t *out_frame</code></td><td>Address of caller-owned byte storage to write.</td></tr>
+          <tr><td><code>size_t out_capacity</code></td><td>How many bytes are valid in <code>out_frame</code>.</td></tr>
+          <tr><td><code>size_t *out_len</code></td><td>Address where the function reports how many bytes it wrote.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Packet Format</h2>
+      <p>
+        The exercise packs one IMU sample into a small OBC telemetry frame:
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Offset</th>
+            <th>Field</th>
+            <th>Bytes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><code>0</code></td><td>SOF0</td><td><code>0xa5</code></td></tr>
+          <tr><td><code>1</code></td><td>SOF1</td><td><code>0x5a</code></td></tr>
+          <tr><td><code>2</code></td><td>message ID</td><td><code>0x42</code></td></tr>
+          <tr><td><code>3</code></td><td>payload length</td><td><code>13</code></td></tr>
+          <tr><td><code>4</code></td><td>flight state</td><td>one enum value</td></tr>
+          <tr><td><code>5..16</code></td><td>six signed IMU fields</td><td>each <code>int16_t</code>, little-endian</td></tr>
+          <tr><td><code>17</code></td><td>checksum</td><td>low byte sum from message ID through payload</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Little-Endian Packing</h2>
+      <p>
+        A packet is bytes, so a signed 16-bit value must be split into two bytes. This exercise uses
+        little-endian order: low byte first, high byte second.
+      </p>
+      <pre><code>uint16_t bits = (uint16_t)value;
+out_frame[index] = (uint8_t)(bits &amp; 0xffu);
+out_frame[index + 1u] = (uint8_t)((bits &gt;&gt; 8u) &amp; 0xffu);</code></pre>
+      <div class="callout warn">
+        <strong>Important:</strong> do not write bytes as you discover problems. Reject bad arguments and
+        insufficient capacity first, then pack the frame once the output buffer is known to fit.
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Quick Check</h2>
+      <h3>1. Which parameter tells you whether <code>out_frame[17]</code> is safe to write?</h3>
+      <button data-target="q1" data-answer="wrong" data-feedback="No. out_frame is where the storage starts; it does not tell you how much storage exists."><code>out_frame</code></button>
+      <button data-target="q1" data-answer="right" data-feedback="Correct. out_capacity is the caller's explicit storage limit."><code>out_capacity</code></button>
+      <button data-target="q1" data-answer="wrong" data-feedback="No. out_len reports what you wrote after the capacity check succeeds."><code>out_len</code></button>
+      <div class="feedback" id="q1"></div>
+
+      <h3>2. For <code>int16_t accel_x_mg = -200</code>, what should be packed first?</h3>
+      <button data-target="q2" data-answer="right" data-feedback="Correct. Little-endian means the low byte is first.">The low byte</button>
+      <button data-target="q2" data-answer="wrong" data-feedback="No. That would be big-endian order.">The high byte</button>
+      <button data-target="q2" data-answer="wrong" data-feedback="No. The packet needs bytes, not a pointer to the field.">The address of the field</button>
+      <div class="feedback" id="q2"></div>
+
+      <h3>3. What should happen if <code>out_capacity</code> is too small?</h3>
+      <button data-target="q3" data-answer="wrong" data-feedback="No. Partial frames create ambiguous telemetry and stale output.">Write as much as fits</button>
+      <button data-target="q3" data-answer="right" data-feedback="Correct. Reject before writing the frame.">Return false</button>
+      <button data-target="q3" data-answer="wrong" data-feedback="No. This exercise is bounded and caller-owned; it must not allocate.">Allocate a bigger buffer</button>
+      <div class="feedback" id="q3"></div>
+    </section>
+
+    <section>
+      <h2>Practice</h2>
+      <p>
+        Open <code>exercises/0007-pack-imu-telemetry/</code>. Implement the helper that packs signed
+        16-bit values and the packet builder.
+      </p>
+      <ol>
+        <li>Reject null pointers.</li>
+        <li>Reject invalid flight states.</li>
+        <li>Check <code>out_capacity</code> before writing frame bytes.</li>
+        <li>Pack all <code>int16_t</code> values low byte first.</li>
+        <li>Compute checksum over <code>msg_id</code>, <code>payload_len</code>, and payload bytes.</li>
+        <li>Set <code>*out_len</code> only after a complete frame is written.</li>
+        <li>Run <code>rtk make test</code>.</li>
+      </ol>
+      <p>
+        If anything feels unclear, ask me about the specific parameter or byte offset.
+      </p>
+    </section>
+
+    <section>
+      <h2>Sources</h2>
+      <ul>
+        <li><a href="https://en.cppreference.com/c/types/integer">cppreference: fixed-width integer types</a></li>
+        <li><a href="https://en.cppreference.com/c/types/size_t">cppreference: size_t</a></li>
+        <li><a href="https://en.cppreference.com/w/c/language/array">cppreference: C array declaration</a></li>
+        <li><a href="https://en.cppreference.com/w/c/language/pointer">cppreference: C pointer declaration</a></li>
+        <li><a href="https://wiki.sei.cmu.edu/confluence/x/wtYxBQ">SEI CERT C ARR30-C</a></li>
+        <li><a href="https://wiki.sei.cmu.edu/confluence/display/c/INT02-C.%2BUnderstand%2Binteger%2Bconversion%2Brules">SEI CERT C INT02-C</a></li>
+      </ul>
+    </section>
+  </main>
+
+  <script>
+    document.querySelectorAll("button[data-target]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const node = document.getElementById(button.dataset.target);
+        node.textContent = button.dataset.feedback;
+        node.className = "feedback " + (button.dataset.answer === "right" ? "ok" : "no");
+      });
+    });
+  </script>
+</body>
+</html>

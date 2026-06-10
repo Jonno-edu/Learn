@@ -118,3 +118,12 @@ This is the quick dictionary for terms learned in the lessons. Keep definitions 
 
 **frame**
 : The complete on-wire packet bytes, including header, metadata, payload, and checksum.
+
+**telemetry**
+: Data sent from the vehicle to another system for monitoring, logging, or analysis. Example: an OBC packet containing IMU values and flight state.
+
+**packing**
+: Turning typed C values such as structs, enums, and integers into a defined sequence of bytes for storage or transmission.
+
+**little-endian**
+: Byte order where the least significant byte is stored or transmitted first. In this workspace, a 16-bit value `0x03d5` packs as `0xd5 0x03`.
