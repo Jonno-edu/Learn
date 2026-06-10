@@ -16,23 +16,30 @@ int main(void)
 
     assert(flight_fsm_dispatch(&fsm, FLIGHT_EVENT_APOGEE_DETECTED) == FLIGHT_PHASE_IDLE);
     assert(fsm.transitions == 0u);
+    printf("Expected: 0: %d\n", fsm.transitions);
 
     assert(flight_fsm_dispatch(&fsm, FLIGHT_EVENT_LAUNCH_DETECTED) == FLIGHT_PHASE_BOOST);
     assert(fsm.transitions == 1u);
+    printf("Expected: 0: %d\n", fsm.transitions);
 
     assert(flight_fsm_dispatch(&fsm, FLIGHT_EVENT_LANDING_DETECTED) == FLIGHT_PHASE_BOOST);
     assert(fsm.transitions == 1u);
+    printf("Expected: 1: %d\n", fsm.transitions);
 
     assert(flight_fsm_dispatch(&fsm, FLIGHT_EVENT_BURNOUT_DETECTED) == FLIGHT_PHASE_COAST);
     assert(fsm.transitions == 2u);
+    printf("Expected: 2: %d\n", fsm.transitions);
 
     assert(flight_fsm_dispatch(&fsm, FLIGHT_EVENT_APOGEE_DETECTED) == FLIGHT_PHASE_DESCENT);
     assert(fsm.transitions == 3u);
+    printf("Expected: 3: %d\n", fsm.transitions);
 
     assert(flight_fsm_dispatch(&fsm, FLIGHT_EVENT_LANDING_DETECTED) == FLIGHT_PHASE_LANDED);
     assert(fsm.transitions == 4u);
+    printf("Expected: 4: %d\n", fsm.transitions);
 
     assert(flight_fsm_dispatch(&fsm, FLIGHT_EVENT_SENSOR_FAULT) == FLIGHT_PHASE_FAULT);
+    printf("Expected: 5: %d\n", fsm.transitions);
     assert(fsm.transitions == 5u);
 
     puts("PASS: event-driven flight FSM exercise");
