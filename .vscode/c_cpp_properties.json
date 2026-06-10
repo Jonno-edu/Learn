@@ -1,0 +1,19 @@
+{
+  "configurations": [
+    {
+      "name": "embedded-c-obc-freertos-posix",
+      "includePath": [
+        "${workspaceFolder}/embedded-c-obc/freertos",
+        "${workspaceFolder}/embedded-c-obc/vendor/FreeRTOS-Kernel/include",
+        "${workspaceFolder}/embedded-c-obc/vendor/FreeRTOS-Kernel/portable/ThirdParty/GCC/Posix",
+        "${workspaceFolder}/embedded-c-obc/vendor/FreeRTOS-Kernel/portable/ThirdParty/GCC/Posix/utils",
+        "${workspaceFolder}/embedded-c-obc/exercises/**"
+      ],
+      "defines": [],
+      "compilerPath": "/usr/bin/cc",
+      "cStandard": "c11",
+      "intelliSenseMode": "macos-clang-arm64"
+    }
+  ],
+  "version": 4
+}

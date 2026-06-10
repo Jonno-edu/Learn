@@ -1,2 +1,7 @@
 embedded-c-obc/exercises/*/exercise
 embedded-c-obc/exercises/*/*.dSYM/
+embedded-c-obc/exercises/*/freertos_*
+embedded-c-obc/exercises/*/*.o
+embedded-c-obc/freertos/*.o
+embedded-c-obc/freertos/freertos_smoke
+embedded-c-obc/vendor/FreeRTOS-Kernel/

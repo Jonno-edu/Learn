@@ -186,8 +186,38 @@ This is the quick dictionary for terms learned in the lessons. Keep definitions 
 **queue**
 : A FreeRTOS object for passing items between tasks or from an ISR to a task. Use when event values or samples must be buffered in order.
 
+**`QueueHandle_t`**
+: The opaque FreeRTOS handle used to refer to a queue after creation.
+
+**queue depth**
+: The maximum number of fixed-size items a queue can hold before sends must wait, fail, or use another explicit overflow policy.
+
+**queue by copy**
+: The normal FreeRTOS queue behavior where item bytes are copied into queue storage on send and copied out into caller-provided storage on receive.
+
+**`BaseType_t`**
+: A FreeRTOS integer type commonly used for pass/fail API return values and small signed kernel values.
+
+**`TickType_t`**
+: A FreeRTOS integer type used for tick counts, delays, and queue block times.
+
+**`pdPASS`**
+: The FreeRTOS success value returned by APIs such as `xQueueSend` and `xQueueReceive` when the queue operation succeeds.
+
+**`pdFAIL`**
+: A FreeRTOS failure value. In local module wrappers, use it for invalid arguments or failed operations when the API contract is pass/fail shaped.
+
+**`portMAX_DELAY`**
+: A FreeRTOS block-time value commonly used to wait indefinitely when the project configuration supports indefinite blocking. Review carefully before using it in a producer task.
+
 **FromISR API**
 : A FreeRTOS API variant intended for interrupt context, such as queue send or task notification functions with `FromISR` in the name.
+
+**dropped sample count**
+: A counter that records samples or events that could not be queued or delivered. It makes overload visible to telemetry and health logic.
+
+**fault latch**
+: A state that remains set after a fault condition is detected until a deliberate reset or recovery path clears it.
 
 **overflow policy**
 : The documented behavior when an event bridge, queue, or buffer is full, such as reject newest, overwrite oldest, or count drops.

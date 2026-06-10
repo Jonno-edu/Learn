@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0015 - FreeRTOS Queue Full Policy</title>
+  <style>
+    :root { --ink:#18222f; --muted:#5c6878; --line:#d8e0ea; --panel:#f7f9fc; --accent:#0f766e; --accent-soft:#e0f4ef; --warn:#9a3412; --warn-soft:#fff3e8; --good:#166534; --bad:#9f1239; --code:#101827; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:white; font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { max-width:1080px; margin:0 auto; padding:36px 24px 56px; }
+    header { margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid var(--line); }
+    h1 { margin:0 0 10px; font-size:38px; line-height:1.08; }
+    h2 { margin:30px 0 10px; font-size:23px; }
+    h3 { margin:18px 0 8px; font-size:17px; }
+    p, li { max-width:82ch; }
+    .lede { color:var(--muted); font-size:18px; max-width:78ch; }
+    .callout { margin:16px 0; padding:14px 16px; border-left:5px solid var(--accent); background:var(--accent-soft); }
+    .warn { border-left-color:var(--warn); background:var(--warn-soft); }
+    code, pre, textarea { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:0.94em; }
+    pre { overflow-x:auto; padding:16px; border-radius:8px; background:var(--code); color:#e5e7eb; }
+    table { width:100%; border-collapse:collapse; margin:14px 0; }
+    th, td { padding:10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+    th { background:var(--panel); }
+    .panel { margin:16px 0; padding:18px; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+    button { margin:4px 6px 4px 0; padding:8px 11px; border:1px solid var(--accent); border-radius:6px; background:white; color:var(--accent); font:inherit; cursor:pointer; }
+    button:hover, button:focus { background:var(--accent-soft); outline:none; }
+    .feedback { min-height:28px; margin-top:8px; font-weight:650; }
+    .ok { color:var(--good); } .no { color:var(--bad); }
+    textarea { width:100%; min-height:128px; margin-top:10px; padding:10px; border:1px solid var(--line); border-radius:8px; background:white; color:var(--ink); }
+    a { color:#0f766e; }
+    @media print { main { padding:18mm; } button,.feedback,textarea,.quiz-actions { display:none; } .panel,.callout,pre,table { break-inside:avoid; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Lesson 0015: FreeRTOS Queue Full Policy</h1>
+      <p class="lede">A full queue is not just an API inconvenience. In flight code it is a declared failure mode: choose the timeout, count drops, and latch a fault when overload becomes unsafe.</p>
+    </header>
+
+    <section>
+      <h2>The Embedded Problem</h2>
+      <p>The IMU queue is intentionally small. If the flight task falls behind, the sensor task must not pretend every sample was delivered.</p>
+      <div class="callout"><strong>OBC habit:</strong> queue overflow is telemetry and health information. Count it, expose it, and decide when it becomes a fault.</div>
+    </section>
+
+    <section>
+      <h2>Policy Boundary</h2>
+      <p>Separate the plain-C policy from the FreeRTOS call. The policy can be tested without a scheduler; the adapter still uses the real queue API.</p>
+      <pre><code>typedef enum
+{
+    IMU_DROP_POLICY_OK,
+    IMU_DROP_POLICY_DROPPED,
+    IMU_DROP_POLICY_FAULT
+} ImuDropPolicyResult;
+
+typedef struct
+{
+    uint32_t sent_sample_count;
+    uint32_t dropped_sample_count;
+    uint32_t drop_fault_threshold;
+    bool fault_latched;
+} ImuDropPolicy;</code></pre>
+    </section>
+
+    <section>
+      <h2>Timeout Is A Design Choice</h2>
+      <table>
+        <thead><tr><th>Send block time</th><th>Behavior</th><th>Use when</th></tr></thead>
+        <tbody>
+          <tr><td><code>(TickType_t)0</code></td><td>Fail immediately if full.</td><td>The producer must keep cadence and missing samples are counted.</td></tr>
+          <tr><td>Finite ticks</td><td>Wait briefly for space.</td><td>A short stall is acceptable and reduces transient drops.</td></tr>
+          <tr><td><code>portMAX_DELAY</code></td><td>Can wait indefinitely when configured.</td><td>Usually wrong for a periodic sensor producer unless the whole system may pause there.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout warn"><strong>Review question:</strong> if a sensor task can block forever on a full queue, what monitors the fact that flight processing has stopped keeping up?</div>
+    </section>
+
+    <section>
+      <h2>Adapter Shape</h2>
+      <pre><code>ImuDropPolicyResult imu_queue_send_with_policy(
+    ImuQueueOverflow *runtime,
+    const ImuSample *sample,
+    TickType_t wait_ticks)
+{
+    BaseType_t result =
+        xQueueSend(runtime-&gt;sample_queue, sample, wait_ticks);
+
+    if (result == pdPASS)
+    {
+        return imu_drop_policy_record_send_ok(&amp;runtime-&gt;drop_policy);
+    }
+
+    return imu_drop_policy_record_send_failed(&amp;runtime-&gt;drop_policy);
+}</code></pre>
+      <p>The queue API tells you whether the send worked. Your module decides what that means for health.</p>
+    </section>
+
+    <section>
+      <h2>Failure Mode Review</h2>
+      <table>
+        <thead><tr><th>Failure</th><th>What to check</th><th>What to expose</th></tr></thead>
+        <tbody>
+          <tr><td>Queue full</td><td>Consumer task too slow, queue too shallow, producer too fast.</td><td><code>dropped_sample_count</code></td></tr>
+          <tr><td>Repeated drops</td><td>Persistent overload or stuck flight task.</td><td><code>fault_latched</code></td></tr>
+          <tr><td>Invalid pointer</td><td>Plain C caller bug, not an RTOS bug.</td><td>Immediate fault result</td></tr>
+          <tr><td>Missing queue handle</td><td>Initialization failed or task started too early.</td><td>Immediate fault result</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Quick Check</h2>
+      <h3>1. What does a non-<code>pdPASS</code> result from <code>xQueueSend</code> mean in this policy?</h3>
+      <button data-question="q1" data-answer="wrong" data-feedback="No. The item was not confirmed queued.">The sample was eventually delivered</button>
+      <button data-question="q1" data-answer="right" data-feedback="Correct. The send failed before the chosen block time allowed space.">A dropped sample must be counted</button>
+      <button data-question="q1" data-answer="wrong" data-feedback="No. The caller still decides the fault policy.">FreeRTOS latched a flight fault automatically</button>
+      <div class="feedback" id="q1"></div>
+
+      <h3>2. Why keep the drop latch in plain C policy code?</h3>
+      <button data-question="q2" data-answer="right" data-feedback="Correct. The health policy can be unit-tested without a scheduler.">So it can be tested without FreeRTOS</button>
+      <button data-question="q2" data-answer="wrong" data-feedback="No. The adapter should still use the real FreeRTOS API.">So the queue API can be avoided forever</button>
+      <button data-question="q2" data-answer="wrong" data-feedback="No. The latch is stateful by design.">So drops clear automatically</button>
+      <div class="feedback" id="q2"></div>
+
+      <h3>3. Why is <code>portMAX_DELAY</code> usually suspicious for a sensor producer send?</h3>
+      <button data-question="q3" data-answer="wrong" data-feedback="No. The problem is blocking forever, not data size.">It makes the sample too large</button>
+      <button data-question="q3" data-answer="right" data-feedback="Correct. The producer can stop sampling cadence while waiting for space.">It can hide overload by blocking forever</button>
+      <button data-question="q3" data-answer="wrong" data-feedback="No. It does not force ordering by timestamp.">It reverses queue order</button>
+      <div class="feedback" id="q3"></div>
+
+      <div class="quiz-actions">
+        <h3>Quiz Record</h3>
+        <p>Use <strong>Export quiz record</strong> and paste the JSON back to me when you want review feedback.</p>
+        <button id="export-results" type="button">Export quiz record</button>
+        <button id="reset-results" type="button">Reset quiz record</button>
+        <textarea id="quiz-export" readonly aria-label="Quiz export"></textarea>
+      </div>
+    </section>
+
+    <section>
+      <h2>Practice</h2>
+      <p>Open <code>exercises/0015-freertos-queue-full-policy/</code>. First make the plain-C drop policy pass, then complete the real FreeRTOS adapter.</p>
+      <ol>
+        <li>Initialize counters, threshold, and fault latch.</li>
+        <li>Record successful sends without clearing a latched fault.</li>
+        <li>Record failed sends by incrementing <code>dropped_sample_count</code>.</li>
+        <li>Latch a fault when the drop count reaches the configured threshold.</li>
+        <li>Call <code>xQueueSend</code> in the adapter and feed its result into the policy.</li>
+        <li>Run <code>rtk make test</code>, <code>rtk make freertos-syntax</code>, then <code>rtk make freertos-test</code>.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Sources</h2>
+      <ul>
+        <li><a href="https://www.freertos.org/Documentation/02-Kernel/04-API-references/06-Queues/00-Queues">FreeRTOS queue API reference</a></li>
+        <li><a href="https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/02-Queues-mutexes-and-semaphores/01-Queues">FreeRTOS queue feature guide</a></li>
+        <li><a href="https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/include/projdefs.h">FreeRTOS-Kernel projdefs.h</a></li>
+      </ul>
+    </section>
+  </main>
+  <script>
+    const storageKey = "embedded-c-obc-lesson-0015-quiz-v1";
+    const questions = { q1:"What does a non-pdPASS result from xQueueSend mean in this policy?", q2:"Why keep the drop latch in plain C policy code?", q3:"Why is portMAX_DELAY usually suspicious for a sensor producer send?" };
+    function loadRecord(){ try { return JSON.parse(localStorage.getItem(storageKey)) || { lesson:"0015", attempts:[] }; } catch (_err) { return { lesson:"0015", attempts:[] }; } }
+    function saveRecord(record){ localStorage.setItem(storageKey, JSON.stringify(record)); }
+    function updateExport(){ const record=loadRecord(); const latest={}; for(const attempt of record.attempts){ latest[attempt.question_id]=attempt; } const summary={ lesson:"0015-freertos-queue-full-policy", latest_answers:Object.keys(questions).map((id)=>({ question_id:id, question:questions[id], latest_correct:latest[id]?latest[id].correct:null, latest_answer:latest[id]?latest[id].answer_text:null })), attempts:record.attempts }; document.getElementById("quiz-export").value=JSON.stringify(summary,null,2); }
+    document.querySelectorAll("button[data-question]").forEach((button)=>{ button.addEventListener("click",()=>{ const id=button.dataset.question; const correct=button.dataset.answer==="right"; const feedback=document.getElementById(id); feedback.textContent=button.dataset.feedback; feedback.className=correct?"feedback ok":"feedback no"; const record=loadRecord(); record.attempts.push({ question_id:id, answer_text:button.textContent.trim(), correct, timestamp:new Date().toISOString() }); saveRecord(record); updateExport(); }); });
+    document.getElementById("export-results").addEventListener("click", updateExport);
+    document.getElementById("reset-results").addEventListener("click",()=>{ localStorage.removeItem(storageKey); updateExport(); document.querySelectorAll(".feedback").forEach((node)=>{ node.textContent=""; node.className="feedback"; }); });
+    updateExport();
+  </script>
+</body>
+</html>

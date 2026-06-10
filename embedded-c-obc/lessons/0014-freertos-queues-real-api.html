@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0014 - FreeRTOS Queues Real API</title>
+  <style>
+    :root { --ink:#18222f; --muted:#5c6878; --line:#d8e0ea; --panel:#f7f9fc; --accent:#0f766e; --accent-soft:#e0f4ef; --warn:#9a3412; --warn-soft:#fff3e8; --good:#166534; --bad:#9f1239; --code:#101827; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:white; font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { max-width:1080px; margin:0 auto; padding:36px 24px 56px; }
+    header { margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid var(--line); }
+    h1 { margin:0 0 10px; font-size:38px; line-height:1.08; }
+    h2 { margin:30px 0 10px; font-size:23px; }
+    h3 { margin:18px 0 8px; font-size:17px; }
+    p, li { max-width:82ch; }
+    .lede { color:var(--muted); font-size:18px; max-width:78ch; }
+    .callout { margin:16px 0; padding:14px 16px; border-left:5px solid var(--accent); background:var(--accent-soft); }
+    .warn { border-left-color:var(--warn); background:var(--warn-soft); }
+    code, pre, textarea { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:0.94em; }
+    pre { overflow-x:auto; padding:16px; border-radius:8px; background:var(--code); color:#e5e7eb; }
+    table { width:100%; border-collapse:collapse; margin:14px 0; }
+    th, td { padding:10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+    th { background:var(--panel); }
+    .panel { margin:16px 0; padding:18px; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+    button { margin:4px 6px 4px 0; padding:8px 11px; border:1px solid var(--accent); border-radius:6px; background:white; color:var(--accent); font:inherit; cursor:pointer; }
+    button:hover, button:focus { background:var(--accent-soft); outline:none; }
+    .feedback { min-height:28px; margin-top:8px; font-weight:650; }
+    .ok { color:var(--good); } .no { color:var(--bad); }
+    textarea { width:100%; min-height:128px; margin-top:10px; padding:10px; border:1px solid var(--line); border-radius:8px; background:white; color:var(--ink); }
+    a { color:#0f766e; }
+    @media print { main { padding:18mm; } button,.feedback,textarea,.quiz-actions { display:none; } .panel,.callout,pre,table { break-inside:avoid; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Lesson 0014: FreeRTOS Queues Real API</h1>
+      <p class="lede">This is the shift from queue concepts to real FreeRTOS queue muscle memory: create a queue, send copied IMU samples, block the flight task on receive, and check every return value.</p>
+    </header>
+
+    <section>
+      <h2>The Embedded Problem</h2>
+      <p>An IMU sensor task produces samples at a fixed rate. A flight task consumes those samples in order. The tasks should not share a writable global sample struct.</p>
+      <div class="callout"><strong>OBC habit:</strong> the sensor task owns sampling. The flight task owns processing. The queue is the boundary between them.</div>
+    </section>
+
+    <section>
+      <h2>Module Boundary</h2>
+      <p>The queue carries one fixed-size item type. In this lesson that item is an <code>ImuSample</code>.</p>
+      <pre><code>typedef struct
+{
+    uint32_t sequence;
+    int16_t accel_mg[3];
+    int16_t gyro_mdps[3];
+    TickType_t sampled_at_tick;
+} ImuSample;
+
+typedef struct
+{
+    QueueHandle_t sample_queue;
+    uint32_t sent_sample_count;
+    uint32_t received_sample_count;
+    uint32_t dropped_sample_count;
+} ImuQueueApp;</code></pre>
+      <p>The public boundary exposes a handle, counters, and functions that make the return-value policy visible.</p>
+    </section>
+
+    <section>
+      <h2>The API To Type</h2>
+      <table>
+        <thead><tr><th>Symbol</th><th>What it means in this exercise</th></tr></thead>
+        <tbody>
+          <tr><td><code>QueueHandle_t</code></td><td>The opaque handle returned by queue creation and passed to send/receive.</td></tr>
+          <tr><td><code>xQueueCreate</code></td><td>Create storage for a fixed queue depth and fixed item size.</td></tr>
+          <tr><td><code>xQueueSend</code></td><td>Copy one item into the queue from task context.</td></tr>
+          <tr><td><code>xQueueReceive</code></td><td>Copy one item out of the queue into caller-provided storage.</td></tr>
+          <tr><td><code>BaseType_t</code></td><td>The FreeRTOS return type used for pass/fail style results.</td></tr>
+          <tr><td><code>TickType_t</code></td><td>The FreeRTOS tick-count type used for block times.</td></tr>
+          <tr><td><code>pdPASS</code> / <code>pdFAIL</code></td><td>Return values you must check instead of assuming success.</td></tr>
+          <tr><td><code>portMAX_DELAY</code></td><td>A common "wait indefinitely" block value when the project configuration supports it.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Queue By Copy</h2>
+      <p>FreeRTOS queues copy bytes. The queue does not magically take ownership of local stack objects unless you deliberately queue pointers.</p>
+      <pre><code>ImuSample sample = read_imu_sample();
+BaseType_t sent = xQueueSend(queue, &amp;sample, (TickType_t)0);
+
+ImuSample received;
+BaseType_t got = xQueueReceive(queue, &amp;received, portMAX_DELAY);</code></pre>
+      <div class="callout warn"><strong>Plain C still matters:</strong> <code>&amp;sample</code> is the address of the item to copy into the queue. <code>&amp;received</code> is the address of storage to copy out into.</div>
+    </section>
+
+    <section>
+      <h2>Producer Task Shape</h2>
+      <pre><code>for (;;)
+{
+    ImuSample sample = read_imu_sample();
+
+    if (xQueueSend(app-&gt;sample_queue, &amp;sample, (TickType_t)0) == pdPASS)
+    {
+        app-&gt;sent_sample_count++;
+    }
+    else
+    {
+        app-&gt;dropped_sample_count++;
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(IMU_SAMPLE_PERIOD_MS));
+}</code></pre>
+      <p>The zero tick block time means fail fast if the queue is full. That makes overflow visible.</p>
+    </section>
+
+    <section>
+      <h2>Flight Task Shape</h2>
+      <pre><code>for (;;)
+{
+    ImuSample received;
+
+    if (xQueueReceive(app-&gt;sample_queue, &amp;received, portMAX_DELAY) == pdPASS)
+    {
+        app-&gt;received_sample_count++;
+        process_imu_sample(&amp;received);
+    }
+}</code></pre>
+      <p>The flight task blocks while the queue is empty. It wakes when a sample is available, receives the oldest queued item, and processes samples in order.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Quick Check</h2>
+      <h3>1. What does <code>xQueueSend(queue, &amp;sample, 0)</code> copy?</h3>
+      <button data-question="q1" data-answer="right" data-feedback="Correct. The queue copies sizeof(ImuSample) bytes from the address you pass.">The bytes of sample</button>
+      <button data-question="q1" data-answer="wrong" data-feedback="No. A normal queue item is copied, not moved by ownership magic.">Ownership of the stack variable</button>
+      <button data-question="q1" data-answer="wrong" data-feedback="No. That would require queuing a pointer item deliberately.">Only the address value</button>
+      <div class="feedback" id="q1"></div>
+
+      <h3>2. What should the sensor task do when <code>xQueueSend</code> does not return <code>pdPASS</code>?</h3>
+      <button data-question="q2" data-answer="wrong" data-feedback="No. Ignoring it hides overload.">Ignore it</button>
+      <button data-question="q2" data-answer="right" data-feedback="Correct. Count the drop and make the failure mode observable.">Count a dropped sample</button>
+      <button data-question="q2" data-answer="wrong" data-feedback="No. The ISR variant is for interrupt context, not task context.">Retry with xQueueSendFromISR</button>
+      <div class="feedback" id="q2"></div>
+
+      <h3>3. Why does the flight task use <code>portMAX_DELAY</code> on receive?</h3>
+      <button data-question="q3" data-answer="wrong" data-feedback="No. The queue stores items in order, not by latest timestamp.">To always get the newest sample only</button>
+      <button data-question="q3" data-answer="right" data-feedback="Correct. The task can sleep until real work exists.">To block instead of polling</button>
+      <button data-question="q3" data-answer="wrong" data-feedback="No. It must still check the return value.">To make failure impossible</button>
+      <div class="feedback" id="q3"></div>
+
+      <div class="quiz-actions">
+        <h3>Quiz Record</h3>
+        <p>Use <strong>Export quiz record</strong> and paste the JSON back to me when you want review feedback.</p>
+        <button id="export-results" type="button">Export quiz record</button>
+        <button id="reset-results" type="button">Reset quiz record</button>
+        <textarea id="quiz-export" readonly aria-label="Quiz export"></textarea>
+      </div>
+    </section>
+
+    <section>
+      <h2>Practice</h2>
+      <p>Open <code>exercises/0014-freertos-queues-real-api/</code>. Complete the real FreeRTOS queue wrapper.</p>
+      <ol>
+        <li>Create a queue with depth <code>3</code> and item size <code>sizeof(ImuSample)</code>.</li>
+        <li>Send a sample with <code>xQueueSend(..., &amp;sample, 0)</code>.</li>
+        <li>Receive a sample with <code>xQueueReceive(..., &amp;received, portMAX_DELAY)</code>.</li>
+        <li>Check for <code>pdPASS</code> before updating counters.</li>
+        <li>Run <code>rtk make freertos-syntax</code> to check the RTOS-facing files.</li>
+        <li>After the TODOs are implemented, run <code>rtk make freertos-test</code> against the local FreeRTOS POSIX port.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Sources</h2>
+      <ul>
+        <li><a href="https://www.freertos.org/Documentation/02-Kernel/04-API-references/06-Queues/00-Queues">FreeRTOS queue API reference</a></li>
+        <li><a href="https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/02-Queues-mutexes-and-semaphores/01-Queues">FreeRTOS queue feature guide</a></li>
+        <li><a href="https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/include/queue.h">FreeRTOS-Kernel queue.h</a></li>
+      </ul>
+    </section>
+  </main>
+  <script>
+    const storageKey = "embedded-c-obc-lesson-0014-quiz-v1";
+    const questions = { q1:"What does xQueueSend(queue, &sample, 0) copy?", q2:"What should the sensor task do when xQueueSend does not return pdPASS?", q3:"Why does the flight task use portMAX_DELAY on receive?" };
+    function loadRecord(){ try { return JSON.parse(localStorage.getItem(storageKey)) || { lesson:"0014", attempts:[] }; } catch (_err) { return { lesson:"0014", attempts:[] }; } }
+    function saveRecord(record){ localStorage.setItem(storageKey, JSON.stringify(record)); }
+    function updateExport(){ const record=loadRecord(); const latest={}; for(const attempt of record.attempts){ latest[attempt.question_id]=attempt; } const summary={ lesson:"0014-freertos-queues-real-api", latest_answers:Object.keys(questions).map((id)=>({ question_id:id, question:questions[id], latest_correct:latest[id]?latest[id].correct:null, latest_answer:latest[id]?latest[id].answer_text:null })), attempts:record.attempts }; document.getElementById("quiz-export").value=JSON.stringify(summary,null,2); }
+    document.querySelectorAll("button[data-question]").forEach((button)=>{ button.addEventListener("click",()=>{ const id=button.dataset.question; const correct=button.dataset.answer==="right"; const feedback=document.getElementById(id); feedback.textContent=button.dataset.feedback; feedback.className=correct?"feedback ok":"feedback no"; const record=loadRecord(); record.attempts.push({ question_id:id, answer_text:button.textContent.trim(), correct, timestamp:new Date().toISOString() }); saveRecord(record); updateExport(); }); });
+    document.getElementById("export-results").addEventListener("click", updateExport);
+    document.getElementById("reset-results").addEventListener("click",()=>{ localStorage.removeItem(storageKey); updateExport(); document.querySelectorAll(".feedback").forEach((node)=>{ node.textContent=""; node.className="feedback"; }); });
+    updateExport();
+  </script>
+</body>
+</html>

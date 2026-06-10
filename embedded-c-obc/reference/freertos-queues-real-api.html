@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FreeRTOS Queues Real API - Quick Reference</title>
+  <style>
+    :root { --ink:#12202b; --line:#d5dde8; --panel:#f7f9fc; --accent:#0f766e; --warn:#9a3412; }
+    body { margin:0; color:var(--ink); background:white; font:16px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { max-width:980px; margin:0 auto; padding:32px 24px 48px; }
+    h1 { margin:0 0 12px; padding-bottom:12px; border-bottom:3px solid var(--accent); font-size:34px; line-height:1.1; }
+    h2 { margin:28px 0 10px; font-size:21px; }
+    p, li { max-width:78ch; }
+    code, pre { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:0.94em; }
+    pre { overflow-x:auto; padding:14px; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+    table { width:100%; border-collapse:collapse; margin:14px 0; }
+    th, td { padding:9px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+    th { background:var(--panel); }
+    .box { margin:16px 0; padding:14px; border:1px solid var(--line); border-left:5px solid var(--accent); border-radius:8px; background:var(--panel); }
+    .warn { border-left-color:var(--warn); }
+    @media print { main { padding:18mm; } .box,pre,table { break-inside:avoid; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>FreeRTOS Queues: Real API</h1>
+    <p>A compact reference for task-to-task IMU sample queues.</p>
+
+    <h2>Create</h2>
+    <pre><code>QueueHandle_t queue =
+    xQueueCreate((UBaseType_t)3, sizeof(ImuSample));
+
+if (queue == NULL)
+{
+    /* Queue was not created. Do not use the handle. */
+}</code></pre>
+
+    <h2>Send From A Task</h2>
+    <pre><code>ImuSample sample = read_imu_sample();
+
+BaseType_t result =
+    xQueueSend(queue, &amp;sample, (TickType_t)0);
+
+if (result == pdPASS)
+{
+    sent_sample_count++;
+}
+else
+{
+    dropped_sample_count++;
+}</code></pre>
+
+    <h2>Receive In The Owner Task</h2>
+    <pre><code>ImuSample received;
+
+if (xQueueReceive(queue, &amp;received, portMAX_DELAY) == pdPASS)
+{
+    process_imu_sample(&amp;received);
+}</code></pre>
+
+    <h2>Return Values</h2>
+    <table>
+      <thead><tr><th>Call</th><th>Success</th><th>Failure means</th></tr></thead>
+      <tbody>
+        <tr><td><code>xQueueCreate</code></td><td>Non-<code>NULL</code> handle</td><td>Queue not created, often allocation/configuration failure.</td></tr>
+        <tr><td><code>xQueueSend</code></td><td><code>pdPASS</code></td><td>No space became available before the block time expired.</td></tr>
+        <tr><td><code>xQueueReceive</code></td><td><code>pdPASS</code></td><td>No item became available before the block time expired.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="box warn">
+      <p>Queues copy item bytes. Use <code>&amp;sample</code> to copy the sample into the queue and <code>&amp;received</code> to copy the next item out. Queue pointers only when pointer ownership and lifetime are deliberately designed.</p>
+    </div>
+
+    <h2>Sources</h2>
+    <ul>
+      <li><a href="https://www.freertos.org/Documentation/02-Kernel/04-API-references/06-Queues/00-Queues">FreeRTOS queue API reference</a></li>
+      <li><a href="https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/02-Queues-mutexes-and-semaphores/01-Queues">FreeRTOS queue feature guide</a></li>
+      <li><a href="https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/include/queue.h">FreeRTOS-Kernel queue.h</a></li>
+    </ul>
+  </main>
+</body>
+</html>

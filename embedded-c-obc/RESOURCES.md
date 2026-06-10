@@ -38,6 +38,8 @@
   Official FreeRTOS reference for queue-based item passing. Use for: buffering flight events or sensor samples between ISR/task and task/task boundaries.
 - [FreeRTOS queue feature guide](https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/02-Queues-mutexes-and-semaphores/01-Queues)
   Official FreeRTOS guide for queue concepts. Use for: contrasting queued items with coalescing notification bits.
+- [FreeRTOS-Kernel GitHub repository](https://github.com/FreeRTOS/FreeRTOS-Kernel)
+  Official FreeRTOS kernel source and header repository. Use for: inspecting real headers such as `queue.h` and `projdefs.h`, setting up local syntax builds, and moving lessons from host-side models to a real FreeRTOS kernel/port.
 - [NASA F Prime code and style guidelines](https://nasa.github.io/fprime/UsersGuide/dev/code-style.html)
   Flight-software-oriented guidance emphasizing readability, reviewability, bounded loops, avoiding recursion, controlled dynamic allocation, and checked return values. Use for: aerospace coding posture and review standards.
 - [NASA cFS repository and documentation links](https://github.com/nasa/cFS)
