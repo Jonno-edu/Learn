@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0018 - FreeRTOS OBC Toolbox Summary</title>
+  <style>
+    :root { --ink:#18222f; --muted:#5c6878; --line:#d8e0ea; --panel:#f7f9fc; --accent:#0f766e; --accent-soft:#e0f4ef; --warn:#9a3412; --warn-soft:#fff3e8; --good:#166534; --bad:#9f1239; --code:#101827; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:white; font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { max-width:1080px; margin:0 auto; padding:36px 24px 56px; }
+    header { margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid var(--line); }
+    h1 { margin:0 0 10px; font-size:38px; line-height:1.08; }
+    h2 { margin:30px 0 10px; font-size:23px; }
+    h3 { margin:18px 0 8px; font-size:17px; }
+    p, li { max-width:82ch; }
+    .lede { color:var(--muted); font-size:18px; max-width:78ch; }
+    .callout { margin:16px 0; padding:14px 16px; border-left:5px solid var(--accent); background:var(--accent-soft); }
+    .warn { border-left-color:var(--warn); background:var(--warn-soft); }
+    code, pre, textarea { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:0.94em; }
+    pre { overflow-x:auto; padding:16px; border-radius:8px; background:var(--code); color:#e5e7eb; }
+    table { width:100%; border-collapse:collapse; margin:14px 0; }
+    th, td { padding:10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+    th { background:var(--panel); }
+    .panel { margin:16px 0; padding:18px; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+    button { margin:4px 6px 4px 0; padding:8px 11px; border:1px solid var(--accent); border-radius:6px; background:white; color:var(--accent); font:inherit; cursor:pointer; }
+    button:hover, button:focus { background:var(--accent-soft); outline:none; }
+    .feedback { min-height:28px; margin-top:8px; font-weight:650; }
+    .ok { color:var(--good); } .no { color:var(--bad); }
+    textarea { width:100%; min-height:128px; margin-top:10px; padding:10px; border:1px solid var(--line); border-radius:8px; background:white; color:var(--ink); }
+    a { color:#0f766e; }
+    @media print { main { padding:18mm; } button,.feedback,textarea,.quiz-actions { display:none; } .panel,.callout,pre,table { break-inside:avoid; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Lesson 0018: FreeRTOS OBC Toolbox Summary</h1>
+      <p class="lede">This lesson is not about memorizing every FreeRTOS primitive. It is about choosing the smallest primitive that matches the boundary you actually need.</p>
+    </header>
+
+    <section>
+      <h2>The Decision Habit</h2>
+      <p>Start with the firmware problem, not the primitive. Ask what must be preserved: a wakeup, a bit of state, every sample, mutual exclusion, or a fixed schedule.</p>
+      <div class="callout"><strong>OBC habit:</strong> primitive choice follows ownership. First decide who owns state, who runs, and what crosses the boundary.</div>
+    </section>
+
+    <section>
+      <h2>Core Toolbox</h2>
+      <table>
+        <thead><tr><th>Need</th><th>Default primitive</th><th>Review question</th></tr></thead>
+        <tbody>
+          <tr><td>One task needs a compact wakeup or flags.</td><td>Task notification.</td><td>Is coalescing acceptable?</td></tr>
+          <tr><td>Every sample or event must be preserved in order.</td><td>Queue.</td><td>What is the overflow policy?</td></tr>
+          <tr><td>Interrupt hands work to a task.</td><td><code>FromISR</code> queue or notification API.</td><td>Is the ISR short and nonblocking?</td></tr>
+          <tr><td>Fixed-rate sensor loop.</td><td><code>vTaskDelayUntil</code>.</td><td>What exposes overruns or stale data?</td></tr>
+          <tr><td>Shared mutable state.</td><td>Prefer single-owner task; mutex only when sharing is deliberate.</td><td>Can ownership remove the lock?</td></tr>
+          <tr><td>Multiple independent condition bits.</td><td>Event group, later.</td><td>Is this becoming a coupled status bus?</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Use Sparingly For Now</h2>
+      <p>Mutexes, binary semaphores, event groups, timers, stream buffers, message buffers, critical sections, atomics, and static allocation are all real tools. They are not the first answer for every OBC problem.</p>
+      <div class="callout warn"><strong>Review smell:</strong> choosing a mutex before asking who should own the data often creates avoidable concurrency work.</div>
+    </section>
+
+    <section class="panel">
+      <h2>Scenario Drill</h2>
+      <h3>1. The barometer interrupt should wake exactly one task to read a status register. Repeated wakeups can coalesce.</h3>
+      <button data-question="q1" data-answer="right" data-feedback="Correct. A notification is a compact one-task wakeup.">Task notification</button>
+      <button data-question="q1" data-answer="wrong" data-feedback="No. A queue is heavier than needed if no ordered data must be preserved.">Queue</button>
+      <button data-question="q1" data-answer="wrong" data-feedback="No. A mutex protects shared state; it does not wake the owner by itself.">Mutex</button>
+      <div class="feedback" id="q1"></div>
+
+      <h3>2. The IMU producer must preserve each sample until the flight task receives it.</h3>
+      <button data-question="q2" data-answer="wrong" data-feedback="No. Notification bits coalesce repeated identical events.">Notification bit</button>
+      <button data-question="q2" data-answer="right" data-feedback="Correct. A queue stores ordered items by copy.">Queue</button>
+      <button data-question="q2" data-answer="wrong" data-feedback="No. A delay schedules time; it does not buffer samples.">vTaskDelayUntil</button>
+      <div class="feedback" id="q2"></div>
+
+      <h3>3. Two tasks want to update one health struct directly.</h3>
+      <button data-question="q3" data-answer="right" data-feedback="Correct. First try to make one task or module own the struct.">Question ownership first</button>
+      <button data-question="q3" data-answer="wrong" data-feedback="Maybe later, but not before checking whether shared mutation is avoidable.">Add a mutex immediately</button>
+      <button data-question="q3" data-answer="wrong" data-feedback="No. A queue cannot fix unclear ownership by itself.">Use a queue for every field</button>
+      <div class="feedback" id="q3"></div>
+
+      <div class="quiz-actions">
+        <h3>Quiz Record</h3>
+        <p>Use <strong>Export quiz record</strong> and paste the JSON back to me when you want review feedback.</p>
+        <button id="export-results" type="button">Export quiz record</button>
+        <button id="reset-results" type="button">Reset quiz record</button>
+        <textarea id="quiz-export" readonly aria-label="Quiz export"></textarea>
+      </div>
+    </section>
+
+    <section>
+      <h2>Practice</h2>
+      <p>Open <code>exercises/0018-freertos-obc-toolbox-summary/</code>. Classify the scenarios, pick one primitive, and write a one-sentence reason plus one failure mode to review.</p>
+      <p>Ask me followup questions if two primitives both seem plausible. The useful skill is explaining the tradeoff.</p>
+    </section>
+
+    <section>
+      <h2>Sources</h2>
+      <ul>
+        <li><a href="https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/01-Tasks-and-co-routines/00-Tasks-and-co-routines">FreeRTOS task feature guide</a></li>
+        <li><a href="https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/02-Queues-mutexes-and-semaphores/01-Queues">FreeRTOS queue feature guide</a></li>
+        <li><a href="https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/03-Direct-to-task-notifications/01-Task-notifications">FreeRTOS task notification feature guide</a></li>
+        <li><a href="https://nasa.github.io/fprime/UsersGuide/dev/code-style.html">NASA F Prime code and style guidelines</a></li>
+      </ul>
+    </section>
+  </main>
+  <script>
+    const storageKey = "embedded-c-obc-lesson-0018-quiz-v1";
+    const questions = { q1:"Barometer interrupt wakes one task and repeated wakeups can coalesce.", q2:"IMU producer must preserve each sample until received.", q3:"Two tasks want to update one health struct directly." };
+    function loadRecord(){ try { return JSON.parse(localStorage.getItem(storageKey)) || { lesson:"0018", attempts:[] }; } catch (_err) { return { lesson:"0018", attempts:[] }; } }
+    function saveRecord(record){ localStorage.setItem(storageKey, JSON.stringify(record)); }
+    function updateExport(){ const record=loadRecord(); const latest={}; for(const attempt of record.attempts){ latest[attempt.question_id]=attempt; } const summary={ lesson:"0018-freertos-obc-toolbox-summary", latest_answers:Object.keys(questions).map((id)=>({ question_id:id, question:questions[id], latest_correct:latest[id]?latest[id].correct:null, latest_answer:latest[id]?latest[id].answer_text:null })), attempts:record.attempts }; document.getElementById("quiz-export").value=JSON.stringify(summary,null,2); }
+    document.querySelectorAll("button[data-question]").forEach((button)=>{ button.addEventListener("click",()=>{ const id=button.dataset.question; const correct=button.dataset.answer==="right"; const feedback=document.getElementById(id); feedback.textContent=button.dataset.feedback; feedback.className=correct?"feedback ok":"feedback no"; const record=loadRecord(); record.attempts.push({ question_id:id, answer_text:button.textContent.trim(), correct, timestamp:new Date().toISOString() }); saveRecord(record); updateExport(); }); });
+    document.getElementById("export-results").addEventListener("click", updateExport);
+    document.getElementById("reset-results").addEventListener("click",()=>{ localStorage.removeItem(storageKey); updateExport(); document.querySelectorAll(".feedback").forEach((node)=>{ node.textContent=""; node.className="feedback"; }); });
+    updateExport();
+  </script>
+</body>
+</html>

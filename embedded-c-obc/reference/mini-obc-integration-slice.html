@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mini OBC Integration Slice Checklist</title>
+  <style>
+    :root { --ink:#12202b; --line:#d5dde8; --panel:#f7f9fc; --accent:#0f766e; --warn:#9a3412; }
+    body { margin:0; color:var(--ink); background:white; font:16px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { max-width:980px; margin:0 auto; padding:32px 24px 48px; }
+    h1 { margin:0 0 12px; padding-bottom:12px; border-bottom:3px solid var(--accent); font-size:34px; line-height:1.1; }
+    h2 { margin:28px 0 10px; font-size:21px; }
+    p, li { max-width:78ch; }
+    code { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:0.94em; }
+    table { width:100%; border-collapse:collapse; margin:14px 0; }
+    th, td { padding:10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+    th { background:var(--panel); }
+    .box { margin:16px 0; padding:14px; border:1px solid var(--line); border-left:5px solid var(--accent); border-radius:8px; background:var(--panel); }
+    .warn { border-left-color:var(--warn); }
+    @media print { main { padding:18mm; } .box,table { break-inside:avoid; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Mini OBC Integration Slice Checklist</h1>
+    <p>A compact process for building a reviewable sensor-to-flight-task feature.</p>
+
+    <h2>Build Order</h2>
+    <ol>
+      <li>State the OBC problem in one sentence.</li>
+      <li>Choose the plain C module boundary.</li>
+      <li>Write public types and function prototypes.</li>
+      <li>Derive tests from requirements.</li>
+      <li>Implement one behavior at a time.</li>
+      <li>Add the FreeRTOS adapter after the core behavior is testable.</li>
+      <li>Review with a safety-critical C checklist.</li>
+    </ol>
+
+    <h2>Requirement To Test Map</h2>
+    <table>
+      <thead><tr><th>Requirement type</th><th>Test shape</th></tr></thead>
+      <tbody>
+        <tr><td>Initialization</td><td>Call init and check every public field with expected defaults.</td></tr>
+        <tr><td>Nominal update</td><td>Feed valid samples and check counters, last tick, and result codes.</td></tr>
+        <tr><td>Drop or stale behavior</td><td>Call failure recorders until the threshold and check fault latches.</td></tr>
+        <tr><td>Invalid input</td><td>Pass <code>NULL</code> and assert a fault result without a crash.</td></tr>
+        <tr><td>Adapter behavior</td><td>Check every FreeRTOS return code before mutating health state.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Review Checklist</h2>
+    <ul>
+      <li>No recursion, hidden unbounded loops, or task delays inside policy modules.</li>
+      <li>All pointer arguments are checked before first dereference.</li>
+      <li>All queue return values are checked.</li>
+      <li>Fault latches are explicit and tested.</li>
+      <li>Public headers expose contracts, not private helper details.</li>
+      <li>Host tests compile warning-clean.</li>
+    </ul>
+
+    <div class="box warn">
+      <p>Do not start the integration slice by wiring every task. Start with the smallest plain C contract that proves the health behavior.</p>
+    </div>
+
+    <h2>Sources</h2>
+    <ul>
+      <li><a href="https://nasa.github.io/fprime/UsersGuide/user/unit-testing.html">F Prime unit testing guidance</a></li>
+      <li><a href="https://nasa.github.io/fprime/UsersGuide/dev/code-style.html">F Prime code and style guidelines</a></li>
+      <li><a href="https://spinroot.com/gerard/pdf/P10.pdf">The Power of Ten</a></li>
+    </ul>
+  </main>
+</body>
+</html>

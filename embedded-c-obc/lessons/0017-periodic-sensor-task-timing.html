@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0017 - Periodic Sensor Task Timing</title>
+  <style>
+    :root { --ink:#18222f; --muted:#5c6878; --line:#d8e0ea; --panel:#f7f9fc; --accent:#0f766e; --accent-soft:#e0f4ef; --warn:#9a3412; --warn-soft:#fff3e8; --good:#166534; --bad:#9f1239; --code:#101827; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:white; font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { max-width:1080px; margin:0 auto; padding:36px 24px 56px; }
+    header { margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid var(--line); }
+    h1 { margin:0 0 10px; font-size:38px; line-height:1.08; }
+    h2 { margin:30px 0 10px; font-size:23px; }
+    h3 { margin:18px 0 8px; font-size:17px; }
+    p, li { max-width:82ch; }
+    .lede { color:var(--muted); font-size:18px; max-width:78ch; }
+    .callout { margin:16px 0; padding:14px 16px; border-left:5px solid var(--accent); background:var(--accent-soft); }
+    .warn { border-left-color:var(--warn); background:var(--warn-soft); }
+    code, pre, textarea { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:0.94em; }
+    pre { overflow-x:auto; padding:16px; border-radius:8px; background:var(--code); color:#e5e7eb; }
+    table { width:100%; border-collapse:collapse; margin:14px 0; }
+    th, td { padding:10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+    th { background:var(--panel); }
+    .panel { margin:16px 0; padding:18px; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+    button { margin:4px 6px 4px 0; padding:8px 11px; border:1px solid var(--accent); border-radius:6px; background:white; color:var(--accent); font:inherit; cursor:pointer; }
+    button:hover, button:focus { background:var(--accent-soft); outline:none; }
+    .feedback { min-height:28px; margin-top:8px; font-weight:650; }
+    .ok { color:var(--good); } .no { color:var(--bad); }
+    textarea { width:100%; min-height:128px; margin-top:10px; padding:10px; border:1px solid var(--line); border-radius:8px; background:white; color:var(--ink); }
+    a { color:#0f766e; }
+    @media print { main { padding:18mm; } button,.feedback,textarea,.quiz-actions { display:none; } .panel,.callout,pre,table { break-inside:avoid; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Lesson 0017: Periodic Sensor Task Timing</h1>
+      <p class="lede">A fixed-rate sensor task should wake on a schedule, do bounded work, make send failures visible, and then return to the scheduler.</p>
+    </header>
+
+    <section>
+      <h2>The Embedded Problem</h2>
+      <p>The IMU producer must sample at a predictable cadence. A loose <code>vTaskDelay(period)</code> after the work makes the loop period depend on how long the work took. <code>vTaskDelayUntil</code> keeps the task aligned to a previous wake time plus a fixed increment.</p>
+      <div class="callout"><strong>OBC habit:</strong> separate timing cadence from health policy. The task owns the loop; a small module owns stale/drop counters.</div>
+    </section>
+
+    <section>
+      <h2>Loop Shape</h2>
+      <pre><code>void imu_sensor_task(void *argument)
+{
+    ImuProducer *producer = argument;
+    TickType_t last_wake = xTaskGetTickCount();
+    const TickType_t period = pdMS_TO_TICKS(10u);
+
+    for (;;)
+    {
+        ImuSample sample = imu_read_sample();
+        BaseType_t sent = xQueueSend(producer-&gt;queue, &amp;sample, (TickType_t)0);
+        imu_timing_policy_record_send(&amp;producer-&gt;timing, sent == pdPASS);
+
+        vTaskDelayUntil(&amp;last_wake, period);
+    }
+}</code></pre>
+      <p>The task does not hide an infinite retry loop inside the producer. If the queue is full, the sample is dropped and the health policy records it.</p>
+    </section>
+
+    <section>
+      <h2>Timing Review Table</h2>
+      <table>
+        <thead><tr><th>Question</th><th>Design answer</th></tr></thead>
+        <tbody>
+          <tr><td>Who owns the loop?</td><td>The FreeRTOS task function.</td></tr>
+          <tr><td>Who owns the sample policy?</td><td>A plain C module with counters and thresholds.</td></tr>
+          <tr><td>What happens when the queue is full?</td><td>The producer records a missed delivery instead of blocking forever.</td></tr>
+          <tr><td>What is an overrun smell?</td><td>The work takes so long that the next release time is already due.</td></tr>
+          <tr><td>What should telemetry expose?</td><td>Drop counts, consecutive missed sends, last sample tick, and any freshness fault.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Do Not Hide The Scheduler</h2>
+      <p>The sensor driver can provide <code>imu_read_sample()</code>. The queue adapter can provide <code>imu_queue_send()</code>. The task is still the place that repeats forever and calls <code>vTaskDelayUntil</code>.</p>
+      <div class="callout warn"><strong>Review smell:</strong> a plain C module that calls <code>vTaskDelayUntil</code> internally is no longer an ordinary policy module. It has become an execution boundary.</div>
+    </section>
+
+    <section class="panel">
+      <h2>Quick Check</h2>
+      <h3>1. Why prefer <code>vTaskDelayUntil</code> for a fixed-rate sensor loop?</h3>
+      <button data-question="q1" data-answer="right" data-feedback="Correct. It schedules against a previous wake time plus a fixed increment.">It keeps a fixed cadence</button>
+      <button data-question="q1" data-answer="wrong" data-feedback="No. The task still has to finish its work.">It makes overruns impossible</button>
+      <button data-question="q1" data-answer="wrong" data-feedback="No. It is a task delay, not a queue operation.">It copies samples into the queue</button>
+      <div class="feedback" id="q1"></div>
+
+      <h3>2. What should the timing policy module avoid owning?</h3>
+      <button data-question="q2" data-answer="wrong" data-feedback="No. Counters are exactly what the policy owns.">Drop counters</button>
+      <button data-question="q2" data-answer="right" data-feedback="Correct. The FreeRTOS task owns the repeated loop.">The infinite task loop</button>
+      <button data-question="q2" data-answer="wrong" data-feedback="No. Thresholds are ordinary module policy.">Fault thresholds</button>
+      <div class="feedback" id="q2"></div>
+
+      <h3>3. What does a zero-tick send from a periodic producer make visible?</h3>
+      <button data-question="q3" data-answer="wrong" data-feedback="No. It does not preserve all samples when full.">Every sample is preserved</button>
+      <button data-question="q3" data-answer="right" data-feedback="Correct. The task can count missed deliveries instead of hiding them.">Queue overload</button>
+      <button data-question="q3" data-answer="wrong" data-feedback="No. It does not change queue copy semantics.">Pointer ownership</button>
+      <div class="feedback" id="q3"></div>
+
+      <div class="quiz-actions">
+        <h3>Quiz Record</h3>
+        <p>Use <strong>Export quiz record</strong> and paste the JSON back to me when you want review feedback.</p>
+        <button id="export-results" type="button">Export quiz record</button>
+        <button id="reset-results" type="button">Reset quiz record</button>
+        <textarea id="quiz-export" readonly aria-label="Quiz export"></textarea>
+      </div>
+    </section>
+
+    <section>
+      <h2>Practice</h2>
+      <p>Open <code>exercises/0017-periodic-sensor-task-timing/</code>. Implement the plain C timing policy first, then inspect the FreeRTOS task skeleton.</p>
+      <ol>
+        <li>Convert milliseconds to ticks without returning zero for a nonzero period.</li>
+        <li>Record successful queue sends and failed sends.</li>
+        <li>Latch a freshness fault after repeated missed sends.</li>
+        <li>Keep the loop and <code>vTaskDelayUntil</code> in <code>imu_periodic_task.c</code>, not inside the policy module.</li>
+      </ol>
+      <p>Ask me followup questions if the distinction between loop timing and policy state still feels fuzzy.</p>
+    </section>
+
+    <section>
+      <h2>Sources</h2>
+      <ul>
+        <li><a href="https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/include/task.h">FreeRTOS-Kernel <code>task.h</code></a></li>
+        <li><a href="https://www.freertos.org/Documentation/02-Kernel/04-API-references/02-Task-control/03-vTaskDelayUntil">FreeRTOS <code>vTaskDelayUntil</code> API reference</a></li>
+        <li><a href="https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/01-Tasks-and-co-routines/00-Tasks-and-co-routines">FreeRTOS task feature guide</a></li>
+      </ul>
+    </section>
+  </main>
+  <script>
+    const storageKey = "embedded-c-obc-lesson-0017-quiz-v1";
+    const questions = { q1:"Why prefer vTaskDelayUntil for a fixed-rate sensor loop?", q2:"What should the timing policy module avoid owning?", q3:"What does a zero-tick send from a periodic producer make visible?" };
+    function loadRecord(){ try { return JSON.parse(localStorage.getItem(storageKey)) || { lesson:"0017", attempts:[] }; } catch (_err) { return { lesson:"0017", attempts:[] }; } }
+    function saveRecord(record){ localStorage.setItem(storageKey, JSON.stringify(record)); }
+    function updateExport(){ const record=loadRecord(); const latest={}; for(const attempt of record.attempts){ latest[attempt.question_id]=attempt; } const summary={ lesson:"0017-periodic-sensor-task-timing", latest_answers:Object.keys(questions).map((id)=>({ question_id:id, question:questions[id], latest_correct:latest[id]?latest[id].correct:null, latest_answer:latest[id]?latest[id].answer_text:null })), attempts:record.attempts }; document.getElementById("quiz-export").value=JSON.stringify(summary,null,2); }
+    document.querySelectorAll("button[data-question]").forEach((button)=>{ button.addEventListener("click",()=>{ const id=button.dataset.question; const correct=button.dataset.answer==="right"; const feedback=document.getElementById(id); feedback.textContent=button.dataset.feedback; feedback.className=correct?"feedback ok":"feedback no"; const record=loadRecord(); record.attempts.push({ question_id:id, answer_text:button.textContent.trim(), correct, timestamp:new Date().toISOString() }); saveRecord(record); updateExport(); }); });
+    document.getElementById("export-results").addEventListener("click", updateExport);
+    document.getElementById("reset-results").addEventListener("click",()=>{ localStorage.removeItem(storageKey); updateExport(); document.querySelectorAll(".feedback").forEach((node)=>{ node.textContent=""; node.className="feedback"; }); });
+    updateExport();
+  </script>
+</body>
+</html>

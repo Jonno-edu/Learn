@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OBC Boundary Classification</title>
+  <style>
+    :root { --ink:#12202b; --line:#d5dde8; --panel:#f7f9fc; --accent:#0f766e; --warn:#9a3412; }
+    body { margin:0; color:var(--ink); background:white; font:16px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { max-width:980px; margin:0 auto; padding:32px 24px 48px; }
+    h1 { margin:0 0 12px; padding-bottom:12px; border-bottom:3px solid var(--accent); font-size:34px; line-height:1.1; }
+    h2 { margin:28px 0 10px; font-size:21px; }
+    p, li { max-width:78ch; }
+    code { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:0.94em; }
+    table { width:100%; border-collapse:collapse; margin:14px 0; }
+    th, td { padding:10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+    th { background:var(--panel); }
+    .box { margin:16px 0; padding:14px; border:1px solid var(--line); border-left:5px solid var(--accent); border-radius:8px; background:var(--panel); }
+    .warn { border-left-color:var(--warn); }
+    @media print { main { padding:18mm; } .box,table { break-inside:avoid; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>OBC Boundary Classification</h1>
+    <p>Use this table before deciding whether something should be a plain C module, FreeRTOS task, queue, or larger app/component.</p>
+
+    <table>
+      <thead><tr><th>Boundary</th><th>Answers</th><th>Typical artifact</th></tr></thead>
+      <tbody>
+        <tr><td>Module</td><td>Who owns this responsibility and state?</td><td><code>.h</code>/<code>.c</code> with public API, private helpers, unit tests.</td></tr>
+        <tr><td>Task</td><td>What runs independently under the scheduler?</td><td>Task function, priority, stack, blocking points.</td></tr>
+        <tr><td>Queue or notification</td><td>What crosses between execution owners?</td><td>Queue item type, notification bits, timeout policy.</td></tr>
+        <tr><td>App/component</td><td>What is deployed, wired, commanded, and integrated?</td><td>F Prime component/topology, cFE app, service integration.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Classification Prompt</h2>
+    <ol>
+      <li>Write the responsibility in one sentence.</li>
+      <li>State whether it needs its own scheduler loop.</li>
+      <li>State what data or events cross into or out of it.</li>
+      <li>State whether the mission framework needs to deploy or command it directly.</li>
+      <li>Only then choose the artifact.</li>
+    </ol>
+
+    <div class="box warn">
+      <p>A single feature can require several boundaries. Keep them named separately instead of making one file do everything.</p>
+    </div>
+
+    <h2>Sources</h2>
+    <ul>
+      <li><a href="https://nasa.github.io/fprime/UsersGuide/user/port-comp-top.html">F Prime ports, components, and topologies</a></li>
+      <li><a href="https://nasa.github.io/fprime/UsersGuide/best/development-practice.html">F Prime development process</a></li>
+      <li><a href="https://github.com/nasa/cFE/blob/main/docs/cFE%20Application%20Developers%20Guide.md">NASA cFE Application Developer's Guide</a></li>
+    </ul>
+  </main>
+</body>
+</html>

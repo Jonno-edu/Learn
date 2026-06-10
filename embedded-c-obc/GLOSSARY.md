@@ -213,6 +213,15 @@ This is the quick dictionary for terms learned in the lessons. Keep definitions 
 **FromISR API**
 : A FreeRTOS API variant intended for interrupt context, such as queue send or task notification functions with `FromISR` in the name.
 
+**`xQueueSendFromISR`**
+: The FreeRTOS queue-send API for interrupt context. It tries to copy an item into a queue without blocking and reports whether a higher-priority task was woken through an output argument.
+
+**`xHigherPriorityTaskWoken`**
+: A `BaseType_t` flag passed by address to many `FromISR` APIs so FreeRTOS can report whether the ISR made a higher-priority task ready to run.
+
+**`portYIELD_FROM_ISR`**
+: A FreeRTOS port macro used at the end of an ISR to request a context switch when a `FromISR` call woke a higher-priority task.
+
 **dropped sample count**
 : A counter that records samples or events that could not be queued or delivered. It makes overload visible to telemetry and health logic.
 
@@ -221,3 +230,47 @@ This is the quick dictionary for terms learned in the lessons. Keep definitions 
 
 **overflow policy**
 : The documented behavior when an event bridge, queue, or buffer is full, such as reject newest, overwrite oldest, or count drops.
+
+**periodic task**
+: A task that runs work at a fixed cadence, usually by keeping a previous wake tick and delaying until the next release time.
+
+**`vTaskDelayUntil`**
+: A FreeRTOS task API for fixed-rate loops. It delays a task until a previous wake time plus a fixed tick increment.
+
+**overrun**
+: A timing condition where task work takes longer than the period budget, so the next scheduled release is already due or late.
+
+**freshness fault**
+: A fault indicating that expected samples or updates have stopped arriving within the allowed policy threshold.
+
+## Architecture And Process
+
+**responsibility boundary**
+: The line around code that owns one reason to change, one state contract, or one policy. In this workspace, a plain C module is usually a responsibility boundary.
+
+**execution boundary**
+: The line around code that runs independently under the scheduler. In FreeRTOS, a task is an execution boundary.
+
+**communication boundary**
+: The line where data or signals cross between owners, such as a queue, notification, stream buffer, or software-bus message.
+
+**integration boundary**
+: The line around deployable or framework-wired software, such as an F Prime component/topology unit or a cFE application.
+
+**component**
+: A framework-level software unit with explicit interfaces, commands, telemetry, events, and wiring. In F Prime, components connect through ports and topology.
+
+**port**
+: A typed framework interface between components. In F Prime, ports define what data or calls can cross a component boundary.
+
+**topology**
+: The framework wiring that instantiates components and connects their ports into a deployed system.
+
+**cFE application**
+: A deployable Core Flight Executive application that integrates with cFE services, tasks, commands, telemetry, and software-bus messages.
+
+**requirement-driven test**
+: A test derived from a stated behavior requirement and exercised through the public interface rather than private implementation details.
+
+**adapter**
+: Code that connects a plain C policy module to a runtime boundary such as FreeRTOS queues/tasks, hardware drivers, or a flight-software framework.

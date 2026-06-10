@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0019 - Module Task Queue App Boundaries</title>
+  <style>
+    :root { --ink:#18222f; --muted:#5c6878; --line:#d8e0ea; --panel:#f7f9fc; --accent:#0f766e; --accent-soft:#e0f4ef; --warn:#9a3412; --warn-soft:#fff3e8; --good:#166534; --bad:#9f1239; --code:#101827; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:white; font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { max-width:1080px; margin:0 auto; padding:36px 24px 56px; }
+    header { margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid var(--line); }
+    h1 { margin:0 0 10px; font-size:38px; line-height:1.08; }
+    h2 { margin:30px 0 10px; font-size:23px; }
+    h3 { margin:18px 0 8px; font-size:17px; }
+    p, li { max-width:82ch; }
+    .lede { color:var(--muted); font-size:18px; max-width:78ch; }
+    .callout { margin:16px 0; padding:14px 16px; border-left:5px solid var(--accent); background:var(--accent-soft); }
+    .warn { border-left-color:var(--warn); background:var(--warn-soft); }
+    code, pre, textarea { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:0.94em; }
+    pre { overflow-x:auto; padding:16px; border-radius:8px; background:var(--code); color:#e5e7eb; }
+    table { width:100%; border-collapse:collapse; margin:14px 0; }
+    th, td { padding:10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+    th { background:var(--panel); }
+    .panel { margin:16px 0; padding:18px; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+    button { margin:4px 6px 4px 0; padding:8px 11px; border:1px solid var(--accent); border-radius:6px; background:white; color:var(--accent); font:inherit; cursor:pointer; }
+    button:hover, button:focus { background:var(--accent-soft); outline:none; }
+    .feedback { min-height:28px; margin-top:8px; font-weight:650; }
+    .ok { color:var(--good); } .no { color:var(--bad); }
+    textarea { width:100%; min-height:128px; margin-top:10px; padding:10px; border:1px solid var(--line); border-radius:8px; background:white; color:var(--ink); }
+    a { color:#0f766e; }
+    @media print { main { padding:18mm; } button,.feedback,textarea,.quiz-actions { display:none; } .panel,.callout,pre,table { break-inside:avoid; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Lesson 0019: Module, Task, Queue, App Boundaries</h1>
+      <p class="lede">Before writing code, name the kind of boundary. A module, task, queue, and application are different answers to different design questions.</p>
+    </header>
+
+    <section>
+      <h2>The Four Boundaries</h2>
+      <table>
+        <thead><tr><th>Boundary</th><th>Question it answers</th><th>OBC example</th></tr></thead>
+        <tbody>
+          <tr><td>Module</td><td>What responsibility and state does this code own?</td><td>Recovery arming policy, IMU freshness policy, telemetry packing.</td></tr>
+          <tr><td>Task</td><td>What runs independently under the scheduler?</td><td>Sensor producer, flight event consumer, telemetry downlink task.</td></tr>
+          <tr><td>Queue or notification</td><td>What crosses between execution owners?</td><td>IMU sample queue, one-task wakeup bit, command message stream.</td></tr>
+          <tr><td>App or component</td><td>What is deployed, wired, commanded, and integrated as a larger unit?</td><td>cFE app, F Prime component, mission-specific flight software component.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout"><strong>Central rule:</strong> a module is a responsibility boundary; a task is an execution boundary; a queue is a communication boundary; an app/component is an integration boundary.</div>
+    </section>
+
+    <section>
+      <h2>Architecture Sources Agree On The Shape</h2>
+      <p>F Prime separates components, ports, and topology. cFE separates applications, tasks, service APIs, and messages. Those frameworks are larger than this lesson, but the useful habit is small: define the interface before mixing responsibility, scheduling, and deployment together.</p>
+      <div class="callout warn"><strong>Review smell:</strong> a file named like a module but containing an infinite task loop, queue creation, hardware reads, and state-machine policy probably has too many boundary types in one place.</div>
+    </section>
+
+    <section>
+      <h2>Example Split</h2>
+      <pre><code>/* Plain C module. */
+ImuHealthResult imu_health_record_sample(ImuHealth *health,
+                                         const ImuSample *sample);
+
+/* FreeRTOS adapter task. */
+void imu_flight_task(void *argument)
+{
+    FlightRuntime *runtime = argument;
+
+    for (;;)
+    {
+        ImuSample sample;
+        if (xQueueReceive(runtime-&gt;sample_queue, &amp;sample, portMAX_DELAY) == pdPASS)
+        {
+            (void)imu_health_record_sample(&amp;runtime-&gt;imu_health, &amp;sample);
+        }
+    }
+}</code></pre>
+      <p>The health module can be unit-tested without FreeRTOS. The task can be reviewed for scheduler behavior. The queue is just the communication boundary between them.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Boundary Drill</h2>
+      <h3>1. "Count consecutive stale IMU samples and latch a fault."</h3>
+      <button data-question="q1" data-answer="right" data-feedback="Correct. This is policy/state ownership, so start as a plain C module.">Module</button>
+      <button data-question="q1" data-answer="wrong" data-feedback="Only if the policy also owns execution, which it should not need to.">Task</button>
+      <button data-question="q1" data-answer="wrong" data-feedback="No. A queue can carry samples, but it does not own the policy.">Queue</button>
+      <div class="feedback" id="q1"></div>
+
+      <h3>2. "Run IMU sampling every 10 ms."</h3>
+      <button data-question="q2" data-answer="wrong" data-feedback="The module can read/configure a sensor, but the repeated schedule is an execution concern.">Module</button>
+      <button data-question="q2" data-answer="right" data-feedback="Correct. A task owns the scheduler-managed loop.">Task</button>
+      <button data-question="q2" data-answer="wrong" data-feedback="No. A queue may carry samples after the task reads them.">App/component</button>
+      <div class="feedback" id="q2"></div>
+
+      <h3>3. "Connect the flight software unit into command, telemetry, and health services."</h3>
+      <button data-question="q3" data-answer="wrong" data-feedback="A module is smaller than the deployment/integration boundary.">Module</button>
+      <button data-question="q3" data-answer="wrong" data-feedback="A task may run inside this boundary, but is not the whole integration unit.">Task</button>
+      <button data-question="q3" data-answer="right" data-feedback="Correct. This is app/component/topology territory.">App or component</button>
+      <div class="feedback" id="q3"></div>
+
+      <div class="quiz-actions">
+        <h3>Quiz Record</h3>
+        <p>Use <strong>Export quiz record</strong> and paste the JSON back to me when you want review feedback.</p>
+        <button id="export-results" type="button">Export quiz record</button>
+        <button id="reset-results" type="button">Reset quiz record</button>
+        <textarea id="quiz-export" readonly aria-label="Quiz export"></textarea>
+      </div>
+    </section>
+
+    <section>
+      <h2>Practice</h2>
+      <p>Open <code>exercises/0019-module-task-queue-app-boundaries/</code>. Classify each OBC feature into module, task, communication boundary, and app/component wiring. Do not implement yet.</p>
+      <p>Ask me followup questions if a feature seems to need more than one boundary. That is usually the point.</p>
+    </section>
+
+    <section>
+      <h2>Sources</h2>
+      <ul>
+        <li><a href="https://nasa.github.io/fprime/UsersGuide/user/port-comp-top.html">F Prime ports, components, and topologies</a></li>
+        <li><a href="https://nasa.github.io/fprime/UsersGuide/best/development-practice.html">F Prime development process</a></li>
+        <li><a href="https://github.com/nasa/cFE/blob/main/docs/cFE%20Application%20Developers%20Guide.md">NASA cFE Application Developer's Guide</a></li>
+      </ul>
+    </section>
+  </main>
+  <script>
+    const storageKey = "embedded-c-obc-lesson-0019-quiz-v1";
+    const questions = { q1:"Count consecutive stale IMU samples and latch a fault.", q2:"Run IMU sampling every 10 ms.", q3:"Connect the flight software unit into command, telemetry, and health services." };
+    function loadRecord(){ try { return JSON.parse(localStorage.getItem(storageKey)) || { lesson:"0019", attempts:[] }; } catch (_err) { return { lesson:"0019", attempts:[] }; } }
+    function saveRecord(record){ localStorage.setItem(storageKey, JSON.stringify(record)); }
+    function updateExport(){ const record=loadRecord(); const latest={}; for(const attempt of record.attempts){ latest[attempt.question_id]=attempt; } const summary={ lesson:"0019-module-task-queue-app-boundaries", latest_answers:Object.keys(questions).map((id)=>({ question_id:id, question:questions[id], latest_correct:latest[id]?latest[id].correct:null, latest_answer:latest[id]?latest[id].answer_text:null })), attempts:record.attempts }; document.getElementById("quiz-export").value=JSON.stringify(summary,null,2); }
+    document.querySelectorAll("button[data-question]").forEach((button)=>{ button.addEventListener("click",()=>{ const id=button.dataset.question; const correct=button.dataset.answer==="right"; const feedback=document.getElementById(id); feedback.textContent=button.dataset.feedback; feedback.className=correct?"feedback ok":"feedback no"; const record=loadRecord(); record.attempts.push({ question_id:id, answer_text:button.textContent.trim(), correct, timestamp:new Date().toISOString() }); saveRecord(record); updateExport(); }); });
+    document.getElementById("export-results").addEventListener("click", updateExport);
+    document.getElementById("reset-results").addEventListener("click",()=>{ localStorage.removeItem(storageKey); updateExport(); document.querySelectorAll(".feedback").forEach((node)=>{ node.textContent=""; node.className="feedback"; }); });
+    updateExport();
+  </script>
+</body>
+</html>

@@ -42,6 +42,14 @@
   Official FreeRTOS kernel source and header repository. Use for: inspecting real headers such as `queue.h` and `projdefs.h`, setting up local syntax builds, and moving lessons from host-side models to a real FreeRTOS kernel/port.
 - [NASA F Prime code and style guidelines](https://nasa.github.io/fprime/UsersGuide/dev/code-style.html)
   Flight-software-oriented guidance emphasizing readability, reviewability, bounded loops, avoiding recursion, controlled dynamic allocation, and checked return values. Use for: aerospace coding posture and review standards.
+- [NASA F Prime development process](https://nasa.github.io/fprime/UsersGuide/best/development-practice.html)
+  Framework development guidance that moves from high-level design into component requirements, interfaces, implementation, unit testing, topology assembly, and integration testing. Use for: teaching problem-to-boundary-to-tests workflow.
+- [NASA F Prime ports, components, and topologies](https://nasa.github.io/fprime/UsersGuide/user/port-comp-top.html)
+  Architecture guidance distinguishing component responsibilities, typed ports, and topology wiring. Use for: module/task/communication/deployment boundary lessons.
+- [NASA F Prime unit testing guidance](https://nasa.github.io/fprime/UsersGuide/user/unit-testing.html)
+  Flight-software testing guidance that maps unit tests to component requirements and tests through interfaces. Use for: deriving tests from requirements before implementation.
+- [NASA cFE Application Developer's Guide](https://github.com/nasa/cFE/blob/main/docs/cFE%20Application%20Developers%20Guide.md)
+  cFE application architecture guide covering application models, task structure, software-bus messaging, service APIs, and best practices. Use for: contrasting plain modules, tasks, queues/messages, and app-level integration boundaries.
 - [NASA cFS repository and documentation links](https://github.com/nasa/cFS)
   NASA Core Flight System bundle and reference links for flight software architecture, applications, platform abstraction, host builds, telemetry, commands, and mission-specific app selection. Use for: module boundaries, app/framework separation, host-side testing, and flight-software architecture vocabulary.
 - [The Power of Ten: Rules for Developing Safety-Critical Code](https://spinroot.com/gerard/pdf/P10.pdf)

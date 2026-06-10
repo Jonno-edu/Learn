@@ -47,6 +47,20 @@ rtk make -C embedded-c-obc/exercises/0015-freertos-queue-full-policy freertos-sy
 rtk make -C embedded-c-obc/exercises/0015-freertos-queue-full-policy freertos-test
 ```
 
+For lesson 0016:
+
+```sh
+rtk make -C embedded-c-obc/exercises/0016-freertos-isr-queue-handoff freertos-syntax
+rtk make -C embedded-c-obc/exercises/0016-freertos-isr-queue-handoff freertos-test
+```
+
+For lesson 0017:
+
+```sh
+rtk make -C embedded-c-obc/exercises/0017-periodic-sensor-task-timing test
+rtk make -C embedded-c-obc/exercises/0017-periodic-sensor-task-timing freertos-syntax
+```
+
 The `freertos-test` targets are expected to fail until the lesson TODOs are
 implemented.
 

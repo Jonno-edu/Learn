@@ -133,6 +133,74 @@
       <dt>frame</dt>
       <dd>The complete on-wire packet bytes, including header, metadata, payload, and checksum.</dd>
     </dl>
+
+    <h2>RTOS Boundary</h2>
+    <dl>
+      <dt>ISR</dt>
+      <dd>Interrupt service routine. Keep it short and avoid blocking work.</dd>
+      <dt>task</dt>
+      <dd>A schedulable FreeRTOS thread of execution. A task usually owns long-running module state.</dd>
+      <dt>blocked</dt>
+      <dd>A task state where the task waits for time, a queue item, notification, or other event.</dd>
+      <dt>tick</dt>
+      <dd>The kernel time unit used for delays, timeouts, and scheduling decisions.</dd>
+      <dt>task notification</dt>
+      <dd>A lightweight FreeRTOS mechanism for signaling a specific task.</dd>
+      <dt>queue</dt>
+      <dd>A FreeRTOS object for passing fixed-size items between tasks or from an ISR to a task.</dd>
+      <dt><code>QueueHandle_t</code></dt>
+      <dd>The opaque handle used to refer to a queue after creation.</dd>
+      <dt>queue by copy</dt>
+      <dd>Normal FreeRTOS queue behavior where item bytes are copied into queue storage and copied out into caller storage.</dd>
+      <dt><code>BaseType_t</code></dt>
+      <dd>A FreeRTOS integer type commonly used for pass/fail API return values.</dd>
+      <dt><code>TickType_t</code></dt>
+      <dd>A FreeRTOS integer type used for tick counts, delays, and queue block times.</dd>
+      <dt><code>pdPASS</code> / <code>pdFAIL</code></dt>
+      <dd>FreeRTOS-style success and failure values that must be checked before updating policy state.</dd>
+      <dt><code>portMAX_DELAY</code></dt>
+      <dd>A block-time value commonly used for indefinite waits when project configuration supports it.</dd>
+      <dt>FromISR API</dt>
+      <dd>A FreeRTOS API variant intended for interrupt context.</dd>
+      <dt><code>xQueueSendFromISR</code></dt>
+      <dd>The ISR-safe FreeRTOS queue-send API. It copies an item into a queue without blocking.</dd>
+      <dt><code>xHigherPriorityTaskWoken</code></dt>
+      <dd>A flag passed by address so a FromISR API can report that a higher-priority task was woken.</dd>
+      <dt><code>portYIELD_FROM_ISR</code></dt>
+      <dd>A port macro used at ISR exit to request a context switch when a higher-priority task was woken.</dd>
+      <dt><code>vTaskDelayUntil</code></dt>
+      <dd>A FreeRTOS task API for fixed-rate loops using a previous wake time plus a fixed tick increment.</dd>
+      <dt>periodic task</dt>
+      <dd>A task that runs work at a fixed cadence.</dd>
+      <dt>overrun</dt>
+      <dd>A condition where task work takes longer than its period budget.</dd>
+      <dt>freshness fault</dt>
+      <dd>A fault indicating that expected samples or updates stopped arriving within the allowed threshold.</dd>
+    </dl>
+
+    <h2>Architecture And Process</h2>
+    <dl>
+      <dt>responsibility boundary</dt>
+      <dd>The line around code that owns one reason to change, one state contract, or one policy.</dd>
+      <dt>execution boundary</dt>
+      <dd>The line around code that runs independently under the scheduler.</dd>
+      <dt>communication boundary</dt>
+      <dd>The line where data or signals cross between owners, such as a queue or notification.</dd>
+      <dt>integration boundary</dt>
+      <dd>The line around deployable or framework-wired software, such as a component or cFE application.</dd>
+      <dt>component</dt>
+      <dd>A framework-level software unit with explicit interfaces, commands, telemetry, events, and wiring.</dd>
+      <dt>port</dt>
+      <dd>A typed framework interface between components.</dd>
+      <dt>topology</dt>
+      <dd>The framework wiring that instantiates components and connects their ports into a deployed system.</dd>
+      <dt>cFE application</dt>
+      <dd>A deployable Core Flight Executive application integrated with cFE services, tasks, commands, telemetry, and software-bus messages.</dd>
+      <dt>requirement-driven test</dt>
+      <dd>A test derived from a stated behavior requirement and exercised through the public interface.</dd>
+      <dt>adapter</dt>
+      <dd>Code that connects a plain C policy module to FreeRTOS, hardware, or a flight-software framework boundary.</dd>
+    </dl>
   </main>
 </body>
 </html>

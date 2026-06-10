@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0020 - Mini OBC Integration Slice</title>
+  <style>
+    :root { --ink:#18222f; --muted:#5c6878; --line:#d8e0ea; --panel:#f7f9fc; --accent:#0f766e; --accent-soft:#e0f4ef; --warn:#9a3412; --warn-soft:#fff3e8; --good:#166534; --bad:#9f1239; --code:#101827; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:white; font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { max-width:1080px; margin:0 auto; padding:36px 24px 56px; }
+    header { margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid var(--line); }
+    h1 { margin:0 0 10px; font-size:38px; line-height:1.08; }
+    h2 { margin:30px 0 10px; font-size:23px; }
+    h3 { margin:18px 0 8px; font-size:17px; }
+    p, li { max-width:82ch; }
+    .lede { color:var(--muted); font-size:18px; max-width:78ch; }
+    .callout { margin:16px 0; padding:14px 16px; border-left:5px solid var(--accent); background:var(--accent-soft); }
+    .warn { border-left-color:var(--warn); background:var(--warn-soft); }
+    code, pre, textarea { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:0.94em; }
+    pre { overflow-x:auto; padding:16px; border-radius:8px; background:var(--code); color:#e5e7eb; }
+    table { width:100%; border-collapse:collapse; margin:14px 0; }
+    th, td { padding:10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+    th { background:var(--panel); }
+    .panel { margin:16px 0; padding:18px; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+    button { margin:4px 6px 4px 0; padding:8px 11px; border:1px solid var(--accent); border-radius:6px; background:white; color:var(--accent); font:inherit; cursor:pointer; }
+    button:hover, button:focus { background:var(--accent-soft); outline:none; }
+    .feedback { min-height:28px; margin-top:8px; font-weight:650; }
+    .ok { color:var(--good); } .no { color:var(--bad); }
+    textarea { width:100%; min-height:128px; margin-top:10px; padding:10px; border:1px solid var(--line); border-radius:8px; background:white; color:var(--ink); }
+    a { color:#0f766e; }
+    @media print { main { padding:18mm; } button,.feedback,textarea,.quiz-actions { display:none; } .panel,.callout,pre,table { break-inside:avoid; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Lesson 0020: Mini OBC Integration Slice</h1>
+      <p class="lede">This is the first consolidation project: design a small IMU-to-flight-task slice before filling in the implementation.</p>
+    </header>
+
+    <section>
+      <h2>The Slice</h2>
+      <p>Build the smallest reviewable path from a sensor producer to health-visible flight logic.</p>
+      <ol>
+        <li>Sensor task produces IMU samples at a fixed cadence.</li>
+        <li>Queue carries samples to the flight task.</li>
+        <li>Plain C module records drops, stale receives, and last good sample timing.</li>
+        <li>Health status exposes overload and freshness faults.</li>
+        <li>FreeRTOS adapter owns task and queue mechanics.</li>
+      </ol>
+      <div class="callout"><strong>Do this in order:</strong> problem, boundary, API, tests, implementation, review.</div>
+    </section>
+
+    <section>
+      <h2>Requirements First</h2>
+      <table>
+        <thead><tr><th>ID</th><th>Requirement</th><th>Test idea</th></tr></thead>
+        <tbody>
+          <tr><td>REQ-001</td><td>Initialize health state with explicit thresholds.</td><td>Check all counters, ticks, and latches after init.</td></tr>
+          <tr><td>REQ-002</td><td>Record each queued sample and remember the latest sequence/tick.</td><td>Feed two samples and check latest values.</td></tr>
+          <tr><td>REQ-003</td><td>Latch overload fault after repeated queue drops.</td><td>Call drop recorder until threshold is reached.</td></tr>
+          <tr><td>REQ-004</td><td>Latch freshness fault after repeated empty receives or missed deliveries.</td><td>Call stale recorder until threshold is reached.</td></tr>
+          <tr><td>REQ-005</td><td>Invalid pointers return a fault result without dereferencing.</td><td>Pass <code>NULL</code> to every public function that accepts a pointer.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Boundary Sketch</h2>
+      <pre><code>/* Plain C policy module. */
+ImuHealthResult imu_health_record_queued_sample(ImuHealth *health,
+                                                uint32_t sequence,
+                                                uint32_t now_tick);
+ImuHealthResult imu_health_record_queue_drop(ImuHealth *health);
+ImuHealthResult imu_health_record_empty_receive(ImuHealth *health);
+
+/* FreeRTOS adapter layer, later. */
+sensor_task --xQueueSend--&gt; sample_queue --xQueueReceive--&gt; flight_task
+flight_task --calls--&gt; imu_health module</code></pre>
+      <p>The exercise starts with the plain C health module. The FreeRTOS task and queue shape is documented, but the first implementation target is host-testable.</p>
+    </section>
+
+    <section>
+      <h2>Safety-Critical Review Posture</h2>
+      <table>
+        <thead><tr><th>Review lens</th><th>Question</th></tr></thead>
+        <tbody>
+          <tr><td>Simple control flow</td><td>Can the reviewer see every error return and latch transition?</td></tr>
+          <tr><td>Bounded behavior</td><td>Are loops bounded or scheduler-owned?</td></tr>
+          <tr><td>Checked returns</td><td>Does every queue send/receive result feed a visible policy?</td></tr>
+          <tr><td>Small scope</td><td>Is private policy kept out of the public header?</td></tr>
+          <tr><td>Warning clean</td><td>Does the host exercise compile with strict warnings?</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Quick Check</h2>
+      <h3>1. Which part should be written and tested first?</h3>
+      <button data-question="q1" data-answer="right" data-feedback="Correct. The policy module gives you a stable interface and fast tests.">The plain C health module</button>
+      <button data-question="q1" data-answer="wrong" data-feedback="No. Task wiring comes after the responsibility boundary is clear.">The full FreeRTOS task wiring</button>
+      <button data-question="q1" data-answer="wrong" data-feedback="No. Telemetry naming comes after the behavior contract.">The telemetry packet labels</button>
+      <div class="feedback" id="q1"></div>
+
+      <h3>2. What should tests be derived from?</h3>
+      <button data-question="q2" data-answer="wrong" data-feedback="No. Implementation details change; requirements define expected behavior.">Private helper names</button>
+      <button data-question="q2" data-answer="right" data-feedback="Correct. Requirement-driven tests keep the API honest.">Requirements and public API behavior</button>
+      <button data-question="q2" data-answer="wrong" data-feedback="No. The scheduler is not the policy source of truth.">Task priorities only</button>
+      <div class="feedback" id="q2"></div>
+
+      <h3>3. Why not start by adding a mutex around the health struct?</h3>
+      <button data-question="q3" data-answer="right" data-feedback="Correct. First decide whether one task/module can own the state.">Ownership may remove the need</button>
+      <button data-question="q3" data-answer="wrong" data-feedback="No. Mutexes are real tools, but not the first design move.">Mutexes never work in FreeRTOS</button>
+      <button data-question="q3" data-answer="wrong" data-feedback="No. Atomics solve a different and narrower problem.">Atomics are always better</button>
+      <div class="feedback" id="q3"></div>
+
+      <div class="quiz-actions">
+        <h3>Quiz Record</h3>
+        <p>Use <strong>Export quiz record</strong> and paste the JSON back to me when you want review feedback.</p>
+        <button id="export-results" type="button">Export quiz record</button>
+        <button id="reset-results" type="button">Reset quiz record</button>
+        <textarea id="quiz-export" readonly aria-label="Quiz export"></textarea>
+      </div>
+    </section>
+
+    <section>
+      <h2>Practice</h2>
+      <p>Open <code>exercises/0020-mini-obc-integration-slice/</code>. Start with the tests and the header. Implement one behavior at a time.</p>
+      <ol>
+        <li>Read <code>integration_design.md</code>.</li>
+        <li>Run the red tests.</li>
+        <li>Implement the plain C health module until the tests pass.</li>
+        <li>Review your code against the checklist in this lesson.</li>
+        <li>Paste the quiz export or test failure back to me for review.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Sources</h2>
+      <ul>
+        <li><a href="https://nasa.github.io/fprime/UsersGuide/best/development-practice.html">F Prime development process</a></li>
+        <li><a href="https://nasa.github.io/fprime/UsersGuide/user/unit-testing.html">F Prime unit testing guidance</a></li>
+        <li><a href="https://nasa.github.io/fprime/UsersGuide/dev/code-style.html">F Prime code and style guidelines</a></li>
+        <li><a href="https://spinroot.com/gerard/pdf/P10.pdf">The Power of Ten: Rules for Developing Safety-Critical Code</a></li>
+      </ul>
+    </section>
+  </main>
+  <script>
+    const storageKey = "embedded-c-obc-lesson-0020-quiz-v1";
+    const questions = { q1:"Which part should be written and tested first?", q2:"What should tests be derived from?", q3:"Why not start by adding a mutex around the health struct?" };
+    function loadRecord(){ try { return JSON.parse(localStorage.getItem(storageKey)) || { lesson:"0020", attempts:[] }; } catch (_err) { return { lesson:"0020", attempts:[] }; } }
+    function saveRecord(record){ localStorage.setItem(storageKey, JSON.stringify(record)); }
+    function updateExport(){ const record=loadRecord(); const latest={}; for(const attempt of record.attempts){ latest[attempt.question_id]=attempt; } const summary={ lesson:"0020-mini-obc-integration-slice", latest_answers:Object.keys(questions).map((id)=>({ question_id:id, question:questions[id], latest_correct:latest[id]?latest[id].correct:null, latest_answer:latest[id]?latest[id].answer_text:null })), attempts:record.attempts }; document.getElementById("quiz-export").value=JSON.stringify(summary,null,2); }
+    document.querySelectorAll("button[data-question]").forEach((button)=>{ button.addEventListener("click",()=>{ const id=button.dataset.question; const correct=button.dataset.answer==="right"; const feedback=document.getElementById(id); feedback.textContent=button.dataset.feedback; feedback.className=correct?"feedback ok":"feedback no"; const record=loadRecord(); record.attempts.push({ question_id:id, answer_text:button.textContent.trim(), correct, timestamp:new Date().toISOString() }); saveRecord(record); updateExport(); }); });
+    document.getElementById("export-results").addEventListener("click", updateExport);
+    document.getElementById("reset-results").addEventListener("click",()=>{ localStorage.removeItem(storageKey); updateExport(); document.querySelectorAll(".feedback").forEach((node)=>{ node.textContent=""; node.className="feedback"; }); });
+    updateExport();
+  </script>
+</body>
+</html>
