@@ -32,6 +32,10 @@
   Official FreeRTOS reference for lightweight task signaling. Use for: ISR-to-task and task-to-task communication once the C fundamentals reach RTOS boundaries.
 - [NASA F Prime code and style guidelines](https://nasa.github.io/fprime/UsersGuide/dev/code-style.html)
   Flight-software-oriented guidance emphasizing readability, reviewability, bounded loops, avoiding recursion, controlled dynamic allocation, and checked return values. Use for: aerospace coding posture and review standards.
+- [NASA cFS repository and documentation links](https://github.com/nasa/cFS)
+  NASA Core Flight System bundle and reference links for flight software architecture, applications, platform abstraction, host builds, telemetry, commands, and mission-specific app selection. Use for: module boundaries, app/framework separation, host-side testing, and flight-software architecture vocabulary.
+- [The Power of Ten: Rules for Developing Safety-Critical Code](https://spinroot.com/gerard/pdf/P10.pdf)
+  Gerard Holzmann's compact safety-critical C ruleset from NASA/JPL practice. Use for: simple control flow, bounded loops, avoiding recursion, limiting scope, checking returns, and keeping code reviewable.
 - [Bosch Sensortec BMP280 data sheet](https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bmp280-ds001.pdf)
   Real sensor datasheet with status bits and packed pressure/temperature data registers. Use for: translating register-map tables into C masks, shifts, and byte-combining helpers.
 

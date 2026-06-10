@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0009 - Stateful Module Design</title>
+  <style>
+    :root { --ink:#18222f; --muted:#5c6878; --line:#d8e0ea; --panel:#f7f9fc; --accent:#0f766e; --accent-soft:#e0f4ef; --warn:#9a3412; --warn-soft:#fff3e8; --good:#166534; --bad:#9f1239; --code:#101827; }
+    * { box-sizing: border-box; }
+    body { margin:0; color:var(--ink); background:white; font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { max-width:1080px; margin:0 auto; padding:36px 24px 56px; }
+    header { margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid var(--line); }
+    h1 { margin:0 0 10px; font-size:38px; line-height:1.08; }
+    h2 { margin:30px 0 10px; font-size:23px; }
+    h3 { margin:18px 0 8px; font-size:17px; }
+    p, li { max-width:82ch; }
+    .lede { color:var(--muted); font-size:18px; max-width:78ch; }
+    .callout { margin:16px 0; padding:14px 16px; border-left:5px solid var(--accent); background:var(--accent-soft); }
+    .warn { border-left-color:var(--warn); background:var(--warn-soft); }
+    code, pre, textarea { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:0.94em; }
+    pre { overflow-x:auto; padding:16px; border-radius:8px; background:var(--code); color:#e5e7eb; }
+    table { width:100%; border-collapse:collapse; margin:14px 0; }
+    th, td { padding:10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+    th { background:var(--panel); }
+    .panel { margin:16px 0; padding:18px; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+    button { margin:4px 6px 4px 0; padding:8px 11px; border:1px solid var(--accent); border-radius:6px; background:white; color:var(--accent); font:inherit; cursor:pointer; }
+    button:hover, button:focus { background:var(--accent-soft); outline:none; }
+    .feedback { min-height:28px; margin-top:8px; font-weight:650; }
+    .ok { color:var(--good); } .no { color:var(--bad); }
+    textarea { width:100%; min-height:128px; margin-top:10px; padding:10px; border:1px solid var(--line); border-radius:8px; background:white; color:var(--ink); }
+    a { color:#0f766e; }
+    @media print { main { padding:18mm; } button,.feedback,textarea,.quiz-actions { display:none; } .panel,.callout,pre,table { break-inside:avoid; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Lesson 0009: Stateful Module Design</h1>
+      <p class="lede">A stateful embedded module remembers facts between calls without hiding ownership. This is the bridge between a pure decision helper and a flight state machine.</p>
+    </header>
+
+    <section>
+      <h2>The One Thing</h2>
+      <p>When a module needs memory between calls, make that memory explicit with a caller-owned context struct and a small <code>init</code>/<code>update</code> API.</p>
+      <div class="callout"><strong>OBC habit:</strong> avoid hidden global state by default. The caller provides storage, the module initializes it, and only the module mutates it through its API.</div>
+    </section>
+
+    <section>
+      <h2>API Shape</h2>
+      <pre><code>typedef struct {
+    FlightPhase phase;
+    uint32_t samples_in_phase;
+    bool fault_latched;
+} FlightFsm;
+
+void flight_fsm_init(FlightFsm *fsm);
+FlightFsmDecision flight_fsm_update(FlightFsm *fsm,
+                                    const FlightFsmInput *input);</code></pre>
+      <table>
+        <thead><tr><th>Piece</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><code>FlightFsm *fsm</code></td><td>Caller-owned module state. The module may modify it.</td></tr>
+          <tr><td><code>const FlightFsmInput *input</code></td><td>Read-only snapshot for this update.</td></tr>
+          <tr><td><code>flight_fsm_init</code></td><td>Places the context into a known starting state.</td></tr>
+          <tr><td><code>flight_fsm_update</code></td><td>Consumes one input sample and advances module state if conditions are met.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Why This Matters</h2>
+      <p>Flight code is reviewed under pressure. A context struct makes ownership inspectable: tests can create two independent instances, reset one without touching the other, and replay sample sequences deterministically.</p>
+      <div class="callout warn"><strong>Review smell:</strong> if update behavior depends on a file-scope variable that tests cannot reset, the module has hidden state.</div>
+    </section>
+
+    <section>
+      <h2>Where The Loop Lives</h2>
+      <p>
+        The module does not loop by itself. The caller owns the loop: a test, scheduler, or later a FreeRTOS task
+        calls <code>flight_phase_update(...)</code> once for each new sensor sample. The same
+        <code>FlightPhaseTracker</code> is passed every time, so counters inside the context remember what happened
+        on earlier calls.
+      </p>
+      <pre><code>FlightPhaseTracker tracker;
+flight_phase_init(&tracker);
+
+for each new sensor sample:
+{
+    FlightPhaseInput input = build_input_from_sample(sample);
+    FlightPhase phase = flight_phase_update(&tracker, &input);
+    publish_or_log_phase(phase);
+}</code></pre>
+      <p>
+        In the exercise tests, the loop is written out as repeated calls so you can see each transition:
+      </p>
+      <table>
+        <thead><tr><th>Call</th><th>Input idea</th><th>Expected phase</th><th>Why state matters</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>motor burning, climbing</td><td><code>BOOST</code></td><td>The tracker leaves idle.</td></tr>
+          <tr><td>2</td><td>motor off, still climbing</td><td><code>COAST</code></td><td>The tracker remembers it was in boost.</td></tr>
+          <tr><td>3</td><td>descending sample</td><td><code>COAST</code></td><td>One descent-like sample is only a candidate.</td></tr>
+          <tr><td>4</td><td>descending sample again</td><td><code>DESCENT</code></td><td>The candidate counter persisted across calls.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Exercise Transition Contract</h2>
+      <p>
+        For this exercise, use this deliberately small set of phase rules. These are not a complete rocket
+        flight detector; they are a teaching contract for practicing stateful module design.
+      </p>
+      <table>
+        <thead><tr><th>Current phase</th><th>Input condition</th><th>Next phase</th><th>Counter behavior</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>IDLE</code></td>
+            <td><code>motor_burning == true</code></td>
+            <td><code>BOOST</code></td>
+            <td>Reset <code>samples_in_phase</code> to <code>0</code> when the phase changes.</td>
+          </tr>
+          <tr>
+            <td><code>BOOST</code></td>
+            <td><code>motor_burning == false</code></td>
+            <td><code>COAST</code></td>
+            <td>Reset <code>samples_in_phase</code> to <code>0</code> when the phase changes.</td>
+          </tr>
+          <tr>
+            <td><code>COAST</code></td>
+            <td><code>vertical_velocity_mps &lt; -10</code> for two consecutive samples</td>
+            <td><code>DESCENT</code></td>
+            <td>Increment <code>descent_candidate_samples</code>; transition when it reaches <code>2</code>.</td>
+          </tr>
+          <tr>
+            <td><code>DESCENT</code></td>
+            <td><code>altitude_m &lt;= 5</code> and <code>vertical_velocity_mps &gt;= -1</code></td>
+            <td><code>LANDED</code></td>
+            <td>Reset phase counters on the transition.</td>
+          </tr>
+          <tr>
+            <td>Any phase</td>
+            <td><code>sensors_valid == false</code> or null pointer input</td>
+            <td><code>FAULT</code></td>
+            <td>Fault is immediate.</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout">
+        <strong>Why two descent samples?</strong> one negative velocity sample might be noise. Requiring two
+        consecutive samples demonstrates why state must persist between calls.
+      </div>
+    </section>
+
+    <section>
+      <h2>Stateful But Not Yet Event-Driven</h2>
+      <p>Lesson 0009 still uses samples directly. For example, "two descending samples in a row" can confirm descent. That teaches state ownership before adding explicit events in lesson 0010.</p>
+      <pre><code>if (input->vertical_velocity_mps < DESCENT_VELOCITY_MPS)
+{
+    fsm->descent_samples += 1u;
+}
+else
+{
+    fsm->descent_samples = 0u;
+}</code></pre>
+    </section>
+
+    <section class="panel">
+      <h2>Quick Check</h2>
+      <h3>1. Who owns storage for a caller-owned context struct?</h3>
+      <button data-question="q1" data-answer="right" data-feedback="Correct. The caller allocates the context and passes its address to the module.">The caller</button>
+      <button data-question="q1" data-answer="wrong" data-feedback="No. The module initializes and mutates it, but does not allocate it in this pattern.">The module allocates it secretly</button>
+      <button data-question="q1" data-answer="wrong" data-feedback="No. Dynamic allocation is not the default for small safety-conscious modules.">malloc</button>
+      <div class="feedback" id="q1"></div>
+
+      <h3>2. Which function should put a context into a known starting state?</h3>
+      <button data-question="q2" data-answer="wrong" data-feedback="No. update assumes the context has already been initialized."><code>flight_fsm_update</code></button>
+      <button data-question="q2" data-answer="right" data-feedback="Correct. init owns the reset-to-known-state contract."><code>flight_fsm_init</code></button>
+      <button data-question="q2" data-answer="wrong" data-feedback="No. A private helper should not be the public reset contract.">A private helper only</button>
+      <div class="feedback" id="q2"></div>
+
+      <h3>3. Why pass input as <code>const FlightFsmInput *</code>?</h3>
+      <button data-question="q3" data-answer="right" data-feedback="Correct. The update reads the sample but should not mutate the caller's sample object.">Borrow read-only input</button>
+      <button data-question="q3" data-answer="wrong" data-feedback="No. const prevents mutation through this pointer.">Mutate sensor data</button>
+      <button data-question="q3" data-answer="wrong" data-feedback="No. const is a compile-time contract, not a thread lock.">Make it thread-safe</button>
+      <div class="feedback" id="q3"></div>
+
+      <div class="quiz-actions">
+        <h3>Quiz Record</h3>
+        <p>Use <strong>Export quiz record</strong> and paste the JSON back to me when you want review feedback.</p>
+        <button id="export-results" type="button">Export quiz record</button>
+        <button id="reset-results" type="button">Reset quiz record</button>
+        <textarea id="quiz-export" readonly aria-label="Quiz export"></textarea>
+      </div>
+    </section>
+
+    <section>
+      <h2>Practice</h2>
+      <p>Open <code>exercises/0009-stateful-module-design/</code>. Implement a small flight-phase tracker with a caller-owned context struct.</p>
+      <ol>
+        <li>Keep public types and prototypes in <code>flight_phase.h</code>.</li>
+        <li>Initialize every context field in <code>flight_phase_init</code>.</li>
+        <li>Call <code>flight_phase_update</code> once per sample; do not write a loop inside the module.</li>
+        <li>Update state only through <code>flight_phase_update</code>.</li>
+        <li>Run <code>rtk make test</code>.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Sources</h2>
+      <ul>
+        <li><a href="https://nasa.github.io/fprime/UsersGuide/dev/code-style.html">NASA F Prime code and style guidelines</a></li>
+        <li><a href="https://github.com/nasa/cFS">NASA cFS repository and documentation links</a></li>
+        <li><a href="https://spinroot.com/gerard/pdf/P10.pdf">The Power of Ten: Rules for Developing Safety-Critical Code</a></li>
+        <li><a href="https://en.cppreference.com/w/c/language/storage_duration">cppreference: storage duration and linkage</a></li>
+      </ul>
+    </section>
+  </main>
+  <script>
+    const storageKey = "embedded-c-obc-lesson-0009-quiz-v1";
+    const questions = { q1:"Who owns storage for a caller-owned context struct?", q2:"Which function should put a context into a known starting state?", q3:"Why pass input as const FlightFsmInput *?" };
+    function loadRecord(){ try { return JSON.parse(localStorage.getItem(storageKey)) || { lesson:"0009", attempts:[] }; } catch (_err) { return { lesson:"0009", attempts:[] }; } }
+    function saveRecord(record){ localStorage.setItem(storageKey, JSON.stringify(record)); }
+    function updateExport(){ const record=loadRecord(); const latest={}; for(const attempt of record.attempts){ latest[attempt.question_id]=attempt; } const summary={ lesson:"0009-stateful-module-design", latest_answers:Object.keys(questions).map((id)=>({ question_id:id, question:questions[id], latest_correct:latest[id]?latest[id].correct:null, latest_answer:latest[id]?latest[id].answer_text:null })), attempts:record.attempts }; document.getElementById("quiz-export").value=JSON.stringify(summary,null,2); }
+    document.querySelectorAll("button[data-question]").forEach((button)=>{ button.addEventListener("click",()=>{ const id=button.dataset.question; const correct=button.dataset.answer==="right"; const feedback=document.getElementById(id); feedback.textContent=button.dataset.feedback; feedback.className=correct?"feedback ok":"feedback no"; const record=loadRecord(); record.attempts.push({ question_id:id, answer_text:button.textContent.trim(), correct, timestamp:new Date().toISOString() }); saveRecord(record); updateExport(); }); });
+    document.getElementById("export-results").addEventListener("click", updateExport);
+    document.getElementById("reset-results").addEventListener("click",()=>{ localStorage.removeItem(storageKey); updateExport(); document.querySelectorAll(".feedback").forEach((node)=>{ node.textContent=""; node.className="feedback"; }); });
+    updateExport();
+  </script>
+</body>
+</html>

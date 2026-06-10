@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0010 - Event-Driven State Machines</title>
+  <style>
+    :root { --ink:#18222f; --muted:#5c6878; --line:#d8e0ea; --panel:#f7f9fc; --accent:#0f766e; --accent-soft:#e0f4ef; --warn:#9a3412; --warn-soft:#fff3e8; --good:#166534; --bad:#9f1239; --code:#101827; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:white; font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { max-width:1080px; margin:0 auto; padding:36px 24px 56px; }
+    header { margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid var(--line); }
+    h1 { margin:0 0 10px; font-size:38px; line-height:1.08; }
+    h2 { margin:30px 0 10px; font-size:23px; }
+    h3 { margin:18px 0 8px; font-size:17px; }
+    p, li { max-width:82ch; }
+    .lede { color:var(--muted); font-size:18px; max-width:78ch; }
+    .callout { margin:16px 0; padding:14px 16px; border-left:5px solid var(--accent); background:var(--accent-soft); }
+    .warn { border-left-color:var(--warn); background:var(--warn-soft); }
+    code, pre, textarea { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:0.94em; }
+    pre { overflow-x:auto; padding:16px; border-radius:8px; background:var(--code); color:#e5e7eb; }
+    table { width:100%; border-collapse:collapse; margin:14px 0; }
+    th, td { padding:10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+    th { background:var(--panel); }
+    .panel { margin:16px 0; padding:18px; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+    button { margin:4px 6px 4px 0; padding:8px 11px; border:1px solid var(--accent); border-radius:6px; background:white; color:var(--accent); font:inherit; cursor:pointer; }
+    button:hover, button:focus { background:var(--accent-soft); outline:none; }
+    .feedback { min-height:28px; margin-top:8px; font-weight:650; }
+    .ok { color:var(--good); } .no { color:var(--bad); }
+    textarea { width:100%; min-height:128px; margin-top:10px; padding:10px; border:1px solid var(--line); border-radius:8px; background:white; color:var(--ink); }
+    a { color:#0f766e; }
+    @media print { main { padding:18mm; } button,.feedback,textarea,.quiz-actions { display:none; } .panel,.callout,pre,table { break-inside:avoid; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Lesson 0010: Event-Driven State Machines</h1>
+      <p class="lede">A state machine should not be a pile of sensor thresholds. Convert observations into named events, then let each state decide which events it accepts.</p>
+    </header>
+
+    <section>
+      <h2>The One Thing</h2>
+      <p>An event-driven state machine separates <strong>detection</strong> from <strong>transition policy</strong>. Detection says "apogee detected." The FSM says "from coast, apogee moves to descent."</p>
+      <div class="callout"><strong>OBC habit:</strong> state transitions should read like a flight-review checklist: current state, incoming event, next state.</div>
+    </section>
+
+    <section>
+      <h2>Event API Shape</h2>
+      <pre><code>typedef enum {
+    FLIGHT_EVENT_NONE = 0,
+    FLIGHT_EVENT_LAUNCH_DETECTED,
+    FLIGHT_EVENT_BURNOUT_DETECTED,
+    FLIGHT_EVENT_APOGEE_DETECTED,
+    FLIGHT_EVENT_LANDING_DETECTED,
+    FLIGHT_EVENT_SENSOR_FAULT
+} FlightEvent;
+
+FlightPhase flight_fsm_dispatch(FlightFsm *fsm, FlightEvent event);</code></pre>
+      <p>The caller or a detector module can produce events. The FSM consumes one event at a time and owns the transition rules.</p>
+    </section>
+
+    <section>
+      <h2>Switch By Current State</h2>
+      <p>The usual embedded-C layout is a top-level <code>switch</code> on current state, then a smaller switch or if-chain for accepted events.</p>
+      <pre><code>switch (fsm->phase)
+{
+case FLIGHT_PHASE_IDLE:
+    return update_idle(fsm, event);
+
+case FLIGHT_PHASE_BOOST:
+    return update_boost(fsm, event);
+
+default:
+    fsm->phase = FLIGHT_PHASE_FAULT;
+    return fsm->phase;
+}</code></pre>
+      <p>This keeps each state's transition policy small and reviewable.</p>
+    </section>
+
+    <section>
+      <h2>Ignore, Reject, Or Fault?</h2>
+      <table>
+        <thead><tr><th>Unexpected event</th><th>Common response</th></tr></thead>
+        <tbody>
+          <tr><td>Benign duplicate, such as another <code>LAUNCH_DETECTED</code> while already in boost</td><td>Ignore and stay in current state.</td></tr>
+          <tr><td>Impossible but non-dangerous ordering, such as landing while idle</td><td>Usually ignore or log in real firmware.</td></tr>
+          <tr><td>Sensor fault, corrupt state, invalid enum</td><td>Latch or enter fault depending on system design.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout warn"><strong>Design point:</strong> "unexpected" does not always mean "fault." Decide that policy deliberately and test it.</div>
+    </section>
+
+    <section>
+      <h2>FreeRTOS Preview</h2>
+      <p>FreeRTOS fits after this boundary. A task can own the FSM context, receive events from a queue or notification, then dispatch them one at a time. The FSM itself stays ordinary testable C.</p>
+      <pre><code>for (;;)
+{
+    FlightEvent event = wait_for_next_event();
+    (void)flight_fsm_dispatch(&fsm, event);
+}</code></pre>
+    </section>
+
+    <section class="panel">
+      <h2>Quick Check</h2>
+      <h3>1. What does the FSM dispatch function consume?</h3>
+      <button data-question="q1" data-answer="wrong" data-feedback="No. Raw samples can produce events, but dispatch should consume the named event.">Every raw sensor sample directly</button>
+      <button data-question="q1" data-answer="right" data-feedback="Correct. Dispatch consumes a named event and applies transition policy.">One named event</button>
+      <button data-question="q1" data-answer="wrong" data-feedback="No. Protocol bytes are a different layer.">One telemetry frame</button>
+      <div class="feedback" id="q1"></div>
+
+      <h3>2. Why switch on current state first?</h3>
+      <button data-question="q2" data-answer="right" data-feedback="Correct. It keeps each state's accepted events local and reviewable.">Each state has different accepted transitions</button>
+      <button data-question="q2" data-answer="wrong" data-feedback="No. The compiler still sees ordinary C branches.">It makes C run without branches</button>
+      <button data-question="q2" data-answer="wrong" data-feedback="No. Tests should still replay transitions through the public API.">It avoids testing</button>
+      <div class="feedback" id="q2"></div>
+
+      <h3>3. Where should FreeRTOS usually sit relative to the FSM?</h3>
+      <button data-question="q3" data-answer="wrong" data-feedback="No. Mixing RTOS calls into transition policy makes host tests harder.">Inside every transition helper</button>
+      <button data-question="q3" data-answer="right" data-feedback="Correct. The task owns scheduling and event delivery; the FSM remains testable C.">Around the FSM as the event delivery layer</button>
+      <button data-question="q3" data-answer="wrong" data-feedback="No. The FSM still owns state transition policy.">Nowhere; tasks replace FSMs</button>
+      <div class="feedback" id="q3"></div>
+
+      <div class="quiz-actions">
+        <h3>Quiz Record</h3>
+        <p>Use <strong>Export quiz record</strong> and paste the JSON back to me when you want review feedback.</p>
+        <button id="export-results" type="button">Export quiz record</button>
+        <button id="reset-results" type="button">Reset quiz record</button>
+        <textarea id="quiz-export" readonly aria-label="Quiz export"></textarea>
+      </div>
+    </section>
+
+    <section>
+      <h2>Practice</h2>
+      <p>Open <code>exercises/0010-event-driven-state-machine/</code>. Implement a flight FSM that transitions by events, not raw thresholds.</p>
+      <ol>
+        <li>Initialize the FSM context.</li>
+        <li>Dispatch one event at a time.</li>
+        <li>Switch by current phase.</li>
+        <li>Keep transition helpers private.</li>
+        <li>Run <code>rtk make test</code>.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Sources</h2>
+      <ul>
+        <li><a href="https://nasa.github.io/fprime/UsersGuide/dev/code-style.html">NASA F Prime code and style guidelines</a></li>
+        <li><a href="https://spinroot.com/gerard/pdf/P10.pdf">The Power of Ten: Rules for Developing Safety-Critical Code</a></li>
+        <li><a href="https://github.com/nasa/cFS">NASA cFS repository and documentation links</a></li>
+        <li><a href="https://freertos.org/Documentation/02-Kernel/04-API-references/05-Direct-to-task-notifications/00-RTOS-task-notifications">FreeRTOS task notifications</a></li>
+      </ul>
+    </section>
+  </main>
+  <script>
+    const storageKey = "embedded-c-obc-lesson-0010-quiz-v1";
+    const questions = { q1:"What does the FSM dispatch function consume?", q2:"Why switch on current state first?", q3:"Where should FreeRTOS usually sit relative to the FSM?" };
+    function loadRecord(){ try { return JSON.parse(localStorage.getItem(storageKey)) || { lesson:"0010", attempts:[] }; } catch (_err) { return { lesson:"0010", attempts:[] }; } }
+    function saveRecord(record){ localStorage.setItem(storageKey, JSON.stringify(record)); }
+    function updateExport(){ const record=loadRecord(); const latest={}; for(const attempt of record.attempts){ latest[attempt.question_id]=attempt; } const summary={ lesson:"0010-event-driven-state-machines", latest_answers:Object.keys(questions).map((id)=>({ question_id:id, question:questions[id], latest_correct:latest[id]?latest[id].correct:null, latest_answer:latest[id]?latest[id].answer_text:null })), attempts:record.attempts }; document.getElementById("quiz-export").value=JSON.stringify(summary,null,2); }
+    document.querySelectorAll("button[data-question]").forEach((button)=>{ button.addEventListener("click",()=>{ const id=button.dataset.question; const correct=button.dataset.answer==="right"; const feedback=document.getElementById(id); feedback.textContent=button.dataset.feedback; feedback.className=correct?"feedback ok":"feedback no"; const record=loadRecord(); record.attempts.push({ question_id:id, answer_text:button.textContent.trim(), correct, timestamp:new Date().toISOString() }); saveRecord(record); updateExport(); }); });
+    document.getElementById("export-results").addEventListener("click", updateExport);
+    document.getElementById("reset-results").addEventListener("click",()=>{ localStorage.removeItem(storageKey); updateExport(); document.querySelectorAll(".feedback").forEach((node)=>{ node.textContent=""; node.className="feedback"; }); });
+    updateExport();
+  </script>
+</body>
+</html>

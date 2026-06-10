@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0008 - Embedded Module API Design</title>
+  <style>
+    :root {
+      --ink: #18222f;
+      --muted: #5c6878;
+      --line: #d8e0ea;
+      --panel: #f7f9fc;
+      --accent: #0f766e;
+      --accent-soft: #e0f4ef;
+      --warn: #9a3412;
+      --warn-soft: #fff3e8;
+      --good: #166534;
+      --bad: #9f1239;
+      --code: #101827;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: white;
+      font: 16px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 36px 24px 56px;
+    }
+    header {
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--line);
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 38px;
+      line-height: 1.08;
+    }
+    h2 {
+      margin: 30px 0 10px;
+      font-size: 23px;
+    }
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 17px;
+    }
+    p, li { max-width: 82ch; }
+    .lede {
+      color: var(--muted);
+      font-size: 18px;
+      max-width: 78ch;
+    }
+    .callout {
+      margin: 16px 0;
+      padding: 14px 16px;
+      border-left: 5px solid var(--accent);
+      background: var(--accent-soft);
+    }
+    .warn {
+      border-left-color: var(--warn);
+      background: var(--warn-soft);
+    }
+    code, pre, textarea {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+    pre {
+      overflow-x: auto;
+      padding: 16px;
+      border-radius: 8px;
+      background: var(--code);
+      color: #e5e7eb;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--panel); }
+    .panel {
+      margin: 16px 0;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    button {
+      margin: 4px 6px 4px 0;
+      padding: 8px 11px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      background: white;
+      color: var(--accent);
+      font: inherit;
+      cursor: pointer;
+    }
+    button:hover, button:focus {
+      background: var(--accent-soft);
+      outline: none;
+    }
+    .feedback {
+      min-height: 28px;
+      margin-top: 8px;
+      font-weight: 650;
+    }
+    .ok { color: var(--good); }
+    .no { color: var(--bad); }
+    textarea {
+      width: 100%;
+      min-height: 128px;
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      color: var(--ink);
+    }
+    a { color: #0f766e; }
+    @media print {
+      main { padding: 18mm; }
+      button, .feedback, textarea, .quiz-actions { display: none; }
+      .panel, .callout, pre, table { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Lesson 0008: Embedded Module API Design</h1>
+      <p class="lede">
+        A module API is the boundary between code that uses a capability and code that owns its details.
+        This lesson prepares you for a state machine by designing a small recovery decision module first.
+      </p>
+    </header>
+
+    <section>
+      <h2>The One Thing</h2>
+      <p>
+        In embedded C, a good module API makes the safe path obvious: callers see the types, constants,
+        and functions they are allowed to use, while private state and helper logic stay inside the
+        <code>.c</code> file.
+      </p>
+      <div class="callout">
+        <strong>OBC habit:</strong> the header is a contract. Put only the caller's promises and the module's
+        promises there. Hide everything else.
+      </div>
+    </section>
+
+    <section>
+      <h2>Public Versus Private</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Belongs in <code>.h</code></th>
+            <th>Belongs in <code>.c</code></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Public types callers must name, such as <code>RecoveryGateDecision</code>.</td>
+            <td>Private helper functions, lookup tables, thresholds, and implementation details.</td>
+          </tr>
+          <tr>
+            <td>Function prototypes callers need, such as <code>recovery_gate_update(...)</code>.</td>
+            <td><code>static</code> functions and file-scope objects used only by this module.</td>
+          </tr>
+          <tr>
+            <td>Small config or input structs when they make call sites clearer.</td>
+            <td>Validation details, transition logic, debounce counters, and derived calculations.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        This separation is why <code>static</code> at file scope matters: it gives a function or object internal
+        linkage, so it is private to that translation unit.
+      </p>
+    </section>
+
+    <section>
+      <h2>A Small Recovery Gate API</h2>
+      <p>
+        Before writing a full state machine, design a smaller decision module. It receives one snapshot of
+        flight data and returns one decision. That gives you API practice without event-history complexity.
+      </p>
+      <pre><code>typedef enum {
+    RECOVERY_GATE_HOLD = 0,
+    RECOVERY_GATE_DEPLOY_DROGUE,
+    RECOVERY_GATE_DEPLOY_MAIN,
+    RECOVERY_GATE_FAULT
+} RecoveryGateDecision;
+
+typedef struct {
+    int32_t altitude_m;
+    int32_t vertical_velocity_mps;
+    FlightState flight_state;
+    bool pyro_armed;
+} RecoveryGateInput;
+
+RecoveryGateDecision recovery_gate_evaluate(const RecoveryGateInput *input);</code></pre>
+      <p>
+        This API says: caller owns the input object, the module reads it, and the module returns a decision.
+        No hidden buffer, no allocation, no protocol bytes, and no output parameter unless the API needs
+        more than one result.
+      </p>
+    </section>
+
+    <section>
+      <h2>Design Questions</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Question</th>
+            <th>Default embedded answer</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Does the module need memory between calls?</td>
+            <td>If yes, use an explicit context struct such as <code>RecoveryGate</code>. If no, a pure evaluate function is simpler.</td>
+          </tr>
+          <tr>
+            <td>Can invalid input happen?</td>
+            <td>Represent impossible states with types when you can. Validate pointer arguments and out-of-range values when you cannot.</td>
+          </tr>
+          <tr>
+            <td>Should the function return a status or the result?</td>
+            <td>Return the main result when failure can be represented clearly. Use a status plus output parameter when failure and result are separate.</td>
+          </tr>
+          <tr>
+            <td>How do tests reach private logic?</td>
+            <td>Prefer testing through the public API. If private logic needs direct tests, the private function may be the wrong boundary.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>State Machine Preparation</h2>
+      <p>
+        A state machine module uses the same boundary rules, but it usually owns state:
+      </p>
+      <pre><code>typedef struct {
+    FlightPhase phase;
+    uint32_t samples_in_phase;
+    bool fault_latched;
+} FlightStateMachine;
+
+void fsm_init(FlightStateMachine *fsm);
+FsmResult fsm_update(FlightStateMachine *fsm, const FsmInput *input);</code></pre>
+      <p>
+        The caller provides storage for <code>FlightStateMachine</code>. The module initializes and mutates it.
+        This avoids dynamic allocation and makes tests deterministic.
+      </p>
+      <div class="callout warn">
+        <strong>Review smell:</strong> if every other file can mutate your module's internal fields directly,
+        the module does not really own its state.
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Quick Check</h2>
+      <h3>1. Which item should usually stay private inside the <code>.c</code> file?</h3>
+      <button data-question="q1" data-answer="wrong" data-feedback="No. Callers need the public decision enum to understand the return value.">The public decision enum</button>
+      <button data-question="q1" data-answer="right" data-feedback="Correct. A helper used only by this module should normally be static in the .c file.">A threshold helper used only by this module</button>
+      <button data-question="q1" data-answer="wrong" data-feedback="No. Callers need the public function prototype to call the module.">The public function prototype</button>
+      <div class="feedback" id="q1"></div>
+
+      <h3>2. A state machine needs memory between calls. What is the clean embedded pattern?</h3>
+      <button data-question="q2" data-answer="wrong" data-feedback="No. Hidden global state makes tests and reuse harder.">Use hidden globals by default</button>
+      <button data-question="q2" data-answer="right" data-feedback="Correct. Caller-provided context gives deterministic storage and explicit ownership.">Pass a caller-owned context struct</button>
+      <button data-question="q2" data-answer="wrong" data-feedback="No. Dynamic allocation is usually avoided in small flight-critical embedded modules.">Allocate state inside update</button>
+      <div class="feedback" id="q2"></div>
+
+      <h3>3. When should you use a status return plus an output parameter?</h3>
+      <button data-question="q3" data-answer="right" data-feedback="Correct. Use this when success/failure and produced value are separate facts.">When the function can fail and also produce a separate result</button>
+      <button data-question="q3" data-answer="wrong" data-feedback="No. That makes simple APIs more complex than needed.">For every function, even simple decisions</button>
+      <button data-question="q3" data-answer="wrong" data-feedback="No. Output parameters do not replace capacity checks or validation.">When you want to skip input validation</button>
+      <div class="feedback" id="q3"></div>
+
+      <h3>4. What is the best first test target for private transition logic?</h3>
+      <button data-question="q4" data-answer="wrong" data-feedback="No. Testing private functions directly can lock tests to implementation details.">Call every static helper directly</button>
+      <button data-question="q4" data-answer="right" data-feedback="Correct. Test the behavior promised by the module boundary first.">Drive it through the public API</button>
+      <button data-question="q4" data-answer="wrong" data-feedback="No. Module boundaries should make important behavior testable.">Do not test it</button>
+      <div class="feedback" id="q4"></div>
+
+      <div class="quiz-actions">
+        <h3>Quiz Record</h3>
+        <p>
+          This page stores quiz attempts in this browser. To show me what you got right or wrong, use
+          <strong>Export quiz record</strong> and paste the text back into chat.
+        </p>
+        <button id="export-results" type="button">Export quiz record</button>
+        <button id="reset-results" type="button">Reset quiz record</button>
+        <textarea id="quiz-export" readonly aria-label="Quiz export"></textarea>
+      </div>
+    </section>
+
+    <section>
+      <h2>Practice</h2>
+      <p>
+        Open <code>exercises/0008-module-api-design/</code>. Your job is to finish the public API and
+        implementation for a tiny recovery gate module.
+      </p>
+      <ol>
+        <li>Read <code>recovery_gate.h</code> first. Treat it as the caller's contract.</li>
+        <li>Keep private helpers <code>static</code> in <code>recovery_gate.c</code>.</li>
+        <li>Use caller-provided storage when state is needed.</li>
+        <li>Run <code>rtk make test</code>.</li>
+      </ol>
+      <p>
+        If you get stuck, ask me whether a type or function belongs in the header or source file.
+      </p>
+    </section>
+
+    <section>
+      <h2>Sources</h2>
+      <ul>
+        <li><a href="https://nasa.github.io/fprime/UsersGuide/dev/code-style.html">NASA F Prime code and style guidelines</a></li>
+        <li><a href="https://www.sei.cmu.edu/library/sei-cert-c-and-c-coding-standards/">SEI CERT C Coding Standard collection</a></li>
+        <li><a href="https://en.cppreference.com/w/c/language/storage_duration">cppreference: storage duration and linkage</a></li>
+        <li><a href="https://en.cppreference.com/w/c/language/pointer">cppreference: C pointer declaration</a></li>
+      </ul>
+    </section>
+  </main>
+
+  <script>
+    const storageKey = "embedded-c-obc-lesson-0008-quiz-v1";
+    const questions = {
+      q1: "Which item should usually stay private inside the .c file?",
+      q2: "A state machine needs memory between calls. What is the clean embedded pattern?",
+      q3: "When should you use a status return plus an output parameter?",
+      q4: "What is the best first test target for private transition logic?"
+    };
+
+    function loadRecord() {
+      try {
+        return JSON.parse(localStorage.getItem(storageKey)) || { lesson: "0008", attempts: [] };
+      } catch (_err) {
+        return { lesson: "0008", attempts: [] };
+      }
+    }
+
+    function saveRecord(record) {
+      localStorage.setItem(storageKey, JSON.stringify(record));
+    }
+
+    function updateExport() {
+      const record = loadRecord();
+      const latest = {};
+      for (const attempt of record.attempts) {
+        latest[attempt.question_id] = attempt;
+      }
+      const summary = {
+        lesson: "0008-embedded-module-api-design",
+        latest_answers: Object.keys(questions).map((id) => ({
+          question_id: id,
+          question: questions[id],
+          latest_correct: latest[id] ? latest[id].correct : null,
+          latest_answer: latest[id] ? latest[id].answer_text : null
+        })),
+        attempts: record.attempts
+      };
+      document.getElementById("quiz-export").value = JSON.stringify(summary, null, 2);
+    }
+
+    document.querySelectorAll("button[data-question]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const id = button.dataset.question;
+        const correct = button.dataset.answer === "right";
+        const feedback = document.getElementById(id);
+        feedback.textContent = button.dataset.feedback;
+        feedback.className = correct ? "feedback ok" : "feedback no";
+
+        const record = loadRecord();
+        record.attempts.push({
+          question_id: id,
+          answer_text: button.textContent.trim(),
+          correct,
+          timestamp: new Date().toISOString()
+        });
+        saveRecord(record);
+        updateExport();
+      });
+    });
+
+    document.getElementById("export-results").addEventListener("click", updateExport);
+    document.getElementById("reset-results").addEventListener("click", () => {
+      localStorage.removeItem(storageKey);
+      updateExport();
+      document.querySelectorAll(".feedback").forEach((node) => {
+        node.textContent = "";
+        node.className = "feedback";
+      });
+    });
+
+    updateExport();
+  </script>
+</body>
+</html>

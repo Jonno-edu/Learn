@@ -127,3 +127,35 @@ This is the quick dictionary for terms learned in the lessons. Keep definitions 
 
 **little-endian**
 : Byte order where the least significant byte is stored or transmitted first. In this workspace, a 16-bit value `0x03d5` packs as `0xd5 0x03`.
+
+## Module Design
+
+**module**
+: A small group of C files that owns one capability, such as packet packing, recovery gating, or state-machine updates.
+
+**API**
+: The public contract a caller uses to interact with a module: visible types, constants, and function prototypes.
+
+**header file (`.h`)**
+: The public face of a C module. It should contain the declarations callers need, not private implementation details.
+
+**source file (`.c`)**
+: The implementation of a C module. It should contain private helpers, internal thresholds, and function bodies.
+
+**internal linkage**
+: File-private visibility for a function or object, usually created with file-scope `static`.
+
+**context struct**
+: Caller-provided storage that a module uses to remember state between calls, such as the current state-machine phase.
+
+**state machine**
+: Logic that stores a current state and changes state only through defined transitions.
+
+**event**
+: A named occurrence consumed by a state machine, such as launch detected, apogee detected, landing detected, or sensor fault.
+
+**dispatch**
+: To feed one event into a state machine so it can apply the transition policy for its current state.
+
+**transition**
+: A deliberate change from one state to another in response to an event or condition.
