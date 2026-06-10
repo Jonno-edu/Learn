@@ -32,6 +32,8 @@ bool event_bridge_post_from_isr(EventBridge *bridge, FlightEvent event)
         return false;
     }
 
+    
+
 
     bridge->has_pending_event = true;
     bridge->pending_event = event;

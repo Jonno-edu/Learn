@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0013 - FreeRTOS Task Notifications</title>
+  <style>
+    :root { --ink:#18222f; --muted:#5c6878; --line:#d8e0ea; --panel:#f7f9fc; --accent:#0f766e; --accent-soft:#e0f4ef; --warn:#9a3412; --warn-soft:#fff3e8; --good:#166534; --bad:#9f1239; --code:#101827; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:white; font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { max-width:1080px; margin:0 auto; padding:36px 24px 56px; }
+    header { margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid var(--line); }
+    h1 { margin:0 0 10px; font-size:38px; line-height:1.08; }
+    h2 { margin:30px 0 10px; font-size:23px; }
+    h3 { margin:18px 0 8px; font-size:17px; }
+    p, li { max-width:82ch; }
+    .lede { color:var(--muted); font-size:18px; max-width:78ch; }
+    .callout { margin:16px 0; padding:14px 16px; border-left:5px solid var(--accent); background:var(--accent-soft); }
+    .warn { border-left-color:var(--warn); background:var(--warn-soft); }
+    code, pre, textarea { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:0.94em; }
+    pre { overflow-x:auto; padding:16px; border-radius:8px; background:var(--code); color:#e5e7eb; }
+    table { width:100%; border-collapse:collapse; margin:14px 0; }
+    th, td { padding:10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+    th { background:var(--panel); }
+    .panel { margin:16px 0; padding:18px; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+    button { margin:4px 6px 4px 0; padding:8px 11px; border:1px solid var(--accent); border-radius:6px; background:white; color:var(--accent); font:inherit; cursor:pointer; }
+    button:hover, button:focus { background:var(--accent-soft); outline:none; }
+    .feedback { min-height:28px; margin-top:8px; font-weight:650; }
+    .ok { color:var(--good); } .no { color:var(--bad); }
+    textarea { width:100%; min-height:128px; margin-top:10px; padding:10px; border:1px solid var(--line); border-radius:8px; background:white; color:var(--ink); }
+    a { color:#0f766e; }
+    @media print { main { padding:18mm; } button,.feedback,textarea,.quiz-actions { display:none; } .panel,.callout,pre,table { break-inside:avoid; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Lesson 0013: FreeRTOS Task Notifications</h1>
+      <p class="lede">Task notifications are a lightweight way to wake or signal one specific task. Use them when the receiver is known and the payload can be compact.</p>
+    </header>
+
+    <section>
+      <h2>The One Thing</h2>
+      <p>A task notification is a per-task signal slot. For an OBC flight task, it can wake the owner task when a compact event bit is set.</p>
+      <div class="callout"><strong>OBC habit:</strong> use a notification for "wake this task for these event bits"; use a queue when you need to preserve a sequence of event objects.</div>
+    </section>
+
+    <section>
+      <h2>Notification Bits</h2>
+      <p>One common pattern is to treat the notification value as a bitfield. Producers set bits; the task reads and clears the bits it handles.</p>
+      <pre><code>#define FLIGHT_NOTIFY_LAUNCH   (1u &lt;&lt; 0)
+#define FLIGHT_NOTIFY_BURNOUT  (1u &lt;&lt; 1)
+#define FLIGHT_NOTIFY_APOGEE   (1u &lt;&lt; 2)
+#define FLIGHT_NOTIFY_FAULT    (1u &lt;&lt; 3)
+
+/* Later FreeRTOS shape. */
+xTaskNotifyFromISR(flight_task_handle,
+                   FLIGHT_NOTIFY_APOGEE,
+                   eSetBits,
+                   &higher_priority_task_woken);</code></pre>
+    </section>
+
+    <section>
+      <h2>Notification Or Queue?</h2>
+      <table>
+        <thead><tr><th>Need</th><th>Usually choose</th><th>Reason</th></tr></thead>
+        <tbody>
+          <tr><td>Wake one known task</td><td>Task notification</td><td>Low overhead and direct.</td></tr>
+          <tr><td>Send compact flags</td><td>Task notification bits</td><td>Bits can coalesce safely when each bit means "work pending".</td></tr>
+          <tr><td>Preserve every event in order</td><td>Queue</td><td>Notifications can merge repeated identical bits.</td></tr>
+          <tr><td>Send structs or samples</td><td>Queue</td><td>A queue carries items, not just a notification value.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout warn"><strong>Design point:</strong> if two apogee notifications arrive before the task wakes, a bitfield still only says "apogee bit is set." That is fine for some events and wrong for others.</div>
+    </section>
+
+    <section>
+      <h2>Task-Side Shape</h2>
+      <pre><code>for (;;)
+{
+    uint32_t bits = wait_for_notification_bits();
+
+    if ((bits &amp; FLIGHT_NOTIFY_APOGEE) != 0u)
+    {
+        (void)flight_fsm_dispatch(&fsm, FLIGHT_EVENT_APOGEE_DETECTED);
+    }
+
+    if ((bits &amp; FLIGHT_NOTIFY_FAULT) != 0u)
+    {
+        (void)flight_fsm_dispatch(&fsm, FLIGHT_EVENT_SENSOR_FAULT);
+    }
+}</code></pre>
+      <p>The task still owns the FSM. The notification only wakes it and tells it which compact events are pending.</p>
+    </section>
+
+    <section>
+      <h2>Exercise Model</h2>
+      <p>The exercise models notification bits without FreeRTOS headers. You will set bits from a producer, wait from the task side, clear consumed bits, and translate bits to flight events.</p>
+      <pre><code>notification_post_bits(&notify, FLIGHT_NOTIFY_APOGEE);
+
+uint32_t bits;
+if (notification_wait_bits(&notify, &bits))
+{
+    /* Task side translates bits to FSM events. */
+}</code></pre>
+    </section>
+
+    <section class="panel">
+      <h2>Quick Check</h2>
+      <h3>1. What is a task notification best at?</h3>
+      <button data-question="q1" data-answer="right" data-feedback="Correct. It is a direct signal to one task.">Signaling one known task</button>
+      <button data-question="q1" data-answer="wrong" data-feedback="No. For a stream of structs, use a queue.">Sending many sample structs</button>
+      <button data-question="q1" data-answer="wrong" data-feedback="No. It does not replace transition policy.">Replacing the FSM</button>
+      <div class="feedback" id="q1"></div>
+
+      <h3>2. What happens to repeated identical bit notifications before the task reads them?</h3>
+      <button data-question="q2" data-answer="wrong" data-feedback="No. A bit can only be set once.">They become a counted list automatically</button>
+      <button data-question="q2" data-answer="right" data-feedback="Correct. The bit remains set; repeated identical signals coalesce.">They coalesce into one set bit</button>
+      <button data-question="q2" data-answer="wrong" data-feedback="No. The task still has to wait/read.">They dispatch the FSM by themselves</button>
+      <div class="feedback" id="q2"></div>
+
+      <h3>3. When should you prefer a queue?</h3>
+      <button data-question="q3" data-answer="wrong" data-feedback="No. A compact wakeup is where notifications are strong.">For one compact wakeup bit</button>
+      <button data-question="q3" data-answer="right" data-feedback="Correct. Use a queue when each item matters.">When every item must be preserved in order</button>
+      <button data-question="q3" data-answer="wrong" data-feedback="No. More API does not automatically mean clearer ownership.">Whenever possible</button>
+      <div class="feedback" id="q3"></div>
+
+      <div class="quiz-actions">
+        <h3>Quiz Record</h3>
+        <p>Use <strong>Export quiz record</strong> and paste the JSON back to me when you want review feedback.</p>
+        <button id="export-results" type="button">Export quiz record</button>
+        <button id="reset-results" type="button">Reset quiz record</button>
+        <textarea id="quiz-export" readonly aria-label="Quiz export"></textarea>
+      </div>
+    </section>
+
+    <section>
+      <h2>Practice</h2>
+      <p>Open <code>exercises/0013-freertos-task-notifications/</code>. Implement a host-side notification-bit model.</p>
+      <ol>
+        <li>Initialize notification bits to empty.</li>
+        <li>Post bits from a producer by OR-ing them into the pending value.</li>
+        <li>Wait from the task side by copying pending bits out and clearing them.</li>
+        <li>Convert one notification bit into one flight event.</li>
+        <li>Run <code>rtk make test</code>.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Sources</h2>
+      <ul>
+        <li><a href="https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/03-Direct-to-task-notifications/01-Task-notifications">FreeRTOS task notification feature guide</a></li>
+        <li><a href="https://www.freertos.org/Documentation/02-Kernel/04-API-references/05-Direct-to-task-notifications/00-RTOS-task-notifications">FreeRTOS task notification API reference</a></li>
+        <li><a href="https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/02-Queues-mutexes-and-semaphores/01-Queues">FreeRTOS queue feature guide</a></li>
+      </ul>
+    </section>
+  </main>
+  <script>
+    const storageKey = "embedded-c-obc-lesson-0013-quiz-v1";
+    const questions = { q1:"What is a task notification best at?", q2:"What happens to repeated identical bit notifications before the task reads them?", q3:"When should you prefer a queue?" };
+    function loadRecord(){ try { return JSON.parse(localStorage.getItem(storageKey)) || { lesson:"0013", attempts:[] }; } catch (_err) { return { lesson:"0013", attempts:[] }; } }
+    function saveRecord(record){ localStorage.setItem(storageKey, JSON.stringify(record)); }
+    function updateExport(){ const record=loadRecord(); const latest={}; for(const attempt of record.attempts){ latest[attempt.question_id]=attempt; } const summary={ lesson:"0013-freertos-task-notifications", latest_answers:Object.keys(questions).map((id)=>({ question_id:id, question:questions[id], latest_correct:latest[id]?latest[id].correct:null, latest_answer:latest[id]?latest[id].answer_text:null })), attempts:record.attempts }; document.getElementById("quiz-export").value=JSON.stringify(summary,null,2); }
+    document.querySelectorAll("button[data-question]").forEach((button)=>{ button.addEventListener("click",()=>{ const id=button.dataset.question; const correct=button.dataset.answer==="right"; const feedback=document.getElementById(id); feedback.textContent=button.dataset.feedback; feedback.className=correct?"feedback ok":"feedback no"; const record=loadRecord(); record.attempts.push({ question_id:id, answer_text:button.textContent.trim(), correct, timestamp:new Date().toISOString() }); saveRecord(record); updateExport(); }); });
+    document.getElementById("export-results").addEventListener("click", updateExport);
+    document.getElementById("reset-results").addEventListener("click",()=>{ localStorage.removeItem(storageKey); updateExport(); document.querySelectorAll(".feedback").forEach((node)=>{ node.textContent=""; node.className="feedback"; }); });
+    updateExport();
+  </script>
+</body>
+</html>

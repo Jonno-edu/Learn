@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0012 - FreeRTOS Task Ownership And Blocking</title>
+  <style>
+    :root { --ink:#18222f; --muted:#5c6878; --line:#d8e0ea; --panel:#f7f9fc; --accent:#0f766e; --accent-soft:#e0f4ef; --warn:#9a3412; --warn-soft:#fff3e8; --good:#166534; --bad:#9f1239; --code:#101827; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:white; font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { max-width:1080px; margin:0 auto; padding:36px 24px 56px; }
+    header { margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid var(--line); }
+    h1 { margin:0 0 10px; font-size:38px; line-height:1.08; }
+    h2 { margin:30px 0 10px; font-size:23px; }
+    h3 { margin:18px 0 8px; font-size:17px; }
+    p, li { max-width:82ch; }
+    .lede { color:var(--muted); font-size:18px; max-width:78ch; }
+    .callout { margin:16px 0; padding:14px 16px; border-left:5px solid var(--accent); background:var(--accent-soft); }
+    .warn { border-left-color:var(--warn); background:var(--warn-soft); }
+    code, pre, textarea { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:0.94em; }
+    pre { overflow-x:auto; padding:16px; border-radius:8px; background:var(--code); color:#e5e7eb; }
+    table { width:100%; border-collapse:collapse; margin:14px 0; }
+    th, td { padding:10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+    th { background:var(--panel); }
+    .panel { margin:16px 0; padding:18px; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+    button { margin:4px 6px 4px 0; padding:8px 11px; border:1px solid var(--accent); border-radius:6px; background:white; color:var(--accent); font:inherit; cursor:pointer; }
+    button:hover, button:focus { background:var(--accent-soft); outline:none; }
+    .feedback { min-height:28px; margin-top:8px; font-weight:650; }
+    .ok { color:var(--good); } .no { color:var(--bad); }
+    textarea { width:100%; min-height:128px; margin-top:10px; padding:10px; border:1px solid var(--line); border-radius:8px; background:white; color:var(--ink); }
+    a { color:#0f766e; }
+    @media print { main { padding:18mm; } button,.feedback,textarea,.quiz-actions { display:none; } .panel,.callout,pre,table { break-inside:avoid; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Lesson 0012: FreeRTOS Task Ownership And Blocking</h1>
+      <p class="lede">A FreeRTOS task is not just a function with a loop. It owns stack, time, blocking behavior, and usually a piece of long-lived module state.</p>
+    </header>
+
+    <section>
+      <h2>The One Thing</h2>
+      <p>A well-shaped task owns one responsibility and spends most of its life <strong>blocked</strong> waiting for work, rather than polling in a tight loop.</p>
+      <div class="callout"><strong>OBC habit:</strong> one flight-control task can own the FSM context. Other code sends it events; it wakes, dispatches one event, then blocks again.</div>
+    </section>
+
+    <section>
+      <h2>Task Shape</h2>
+      <pre><code>static void flight_task(void *argument)
+{
+    FlightTaskContext *ctx = argument;
+
+    for (;;)
+    {
+        FlightEvent event;
+        if (wait_for_event(&event, ctx->wait_timeout_ticks))
+        {
+            (void)flight_fsm_dispatch(&ctx->fsm, event);
+        }
+        else
+        {
+            record_idle_timeout(ctx);
+        }
+    }
+}</code></pre>
+      <p>The infinite loop is normal. The important part is that <code>wait_for_event</code> blocks, so the task gives CPU time back to the scheduler while there is no work.</p>
+    </section>
+
+    <section>
+      <h2>Ownership Checklist</h2>
+      <table>
+        <thead><tr><th>Question</th><th>Good answer</th><th>Review smell</th></tr></thead>
+        <tbody>
+          <tr><td>What state does this task own?</td><td>The flight FSM context and its counters.</td><td>Many tasks write the same state directly.</td></tr>
+          <tr><td>What does it wait on?</td><td>An event source with a clear timeout.</td><td>A tight loop checking a flag forever.</td></tr>
+          <tr><td>What happens on timeout?</td><td>A deliberate idle/health/check path.</td><td>The timeout case is ignored accidentally.</td></tr>
+          <tr><td>Can it block inside shared code?</td><td>Only if the API contract says so.</td><td>A helper unexpectedly sleeps or waits.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Blocked Is Healthy</h2>
+      <p>In FreeRTOS, a blocked task is waiting for something: time to pass, a queue item, a notification, a semaphore, or another kernel event. That is usually healthier than burning CPU cycles checking the same condition repeatedly.</p>
+      <div class="callout warn"><strong>Review smell:</strong> <code>for (;;) { if (flag) { ... } }</code> with no delay or blocking call is usually a busy poll.</div>
+    </section>
+
+    <section>
+      <h2>Exercise Model</h2>
+      <p>The exercise does not include FreeRTOS headers. It gives you a host-side model of one task step: receive an event if one is pending, dispatch later, or record an idle timeout.</p>
+      <pre><code>FlightTaskResult result =
+    flight_task_step(&task, &source, &event_to_dispatch);
+
+if (result == FLIGHT_TASK_DISPATCH_EVENT)
+{
+    (void)flight_fsm_dispatch(&fsm, event_to_dispatch);
+}</code></pre>
+      <p>This is the same shape as a task that blocks on a queue or notification, but small enough to test locally.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Quick Check</h2>
+      <h3>1. What should a task usually do when it has no work?</h3>
+      <button data-question="q1" data-answer="wrong" data-feedback="No. A tight poll burns CPU time and hides scheduling intent.">Spin in a tight loop</button>
+      <button data-question="q1" data-answer="right" data-feedback="Correct. Blocking lets the scheduler run other ready tasks.">Block waiting for work or timeout</button>
+      <button data-question="q1" data-answer="wrong" data-feedback="No. Resetting state is not a normal idle behavior.">Reinitialize every module</button>
+      <div class="feedback" id="q1"></div>
+
+      <h3>2. Who should own the flight FSM context?</h3>
+      <button data-question="q2" data-answer="right" data-feedback="Correct. One owner makes transitions reviewable.">One task</button>
+      <button data-question="q2" data-answer="wrong" data-feedback="No. Multiple writers make race conditions likely.">Every producer</button>
+      <button data-question="q2" data-answer="wrong" data-feedback="No. ISRs should report events, not own long-running state.">The ISR</button>
+      <div class="feedback" id="q2"></div>
+
+      <h3>3. Why should timeout handling be explicit?</h3>
+      <button data-question="q3" data-answer="wrong" data-feedback="No. Ignored timeout paths become untested behavior.">So it can be ignored</button>
+      <button data-question="q3" data-answer="right" data-feedback="Correct. A timeout is a real branch in the task behavior.">It is part of the task contract</button>
+      <button data-question="q3" data-answer="wrong" data-feedback="No. It does not make C automatic memory safe.">It prevents all pointer bugs</button>
+      <div class="feedback" id="q3"></div>
+
+      <div class="quiz-actions">
+        <h3>Quiz Record</h3>
+        <p>Use <strong>Export quiz record</strong> and paste the JSON back to me when you want review feedback.</p>
+        <button id="export-results" type="button">Export quiz record</button>
+        <button id="reset-results" type="button">Reset quiz record</button>
+        <textarea id="quiz-export" readonly aria-label="Quiz export"></textarea>
+      </div>
+    </section>
+
+    <section>
+      <h2>Practice</h2>
+      <p>Open <code>exercises/0012-freertos-task-ownership-and-blocking/</code>. Implement a host-side task-step adapter.</p>
+      <ol>
+        <li>Initialize the task context with a wait timeout.</li>
+        <li>If an event is pending, copy it to the caller and clear the source.</li>
+        <li>If no event is pending, count an idle timeout.</li>
+        <li>Return an explicit result for dispatch, timeout, or fault.</li>
+        <li>Run <code>rtk make test</code>.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Sources</h2>
+      <ul>
+        <li><a href="https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/01-Tasks-and-co-routines/00-Tasks-and-co-routines">FreeRTOS tasks documentation</a></li>
+        <li><a href="https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/02-Queues-mutexes-and-semaphores/01-Queues">FreeRTOS queue feature guide</a></li>
+        <li><a href="https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/03-Direct-to-task-notifications/01-Task-notifications">FreeRTOS task notification feature guide</a></li>
+        <li><a href="https://spinroot.com/gerard/pdf/P10.pdf">The Power of Ten: Rules for Developing Safety-Critical Code</a></li>
+      </ul>
+    </section>
+  </main>
+  <script>
+    const storageKey = "embedded-c-obc-lesson-0012-quiz-v1";
+    const questions = { q1:"What should a task usually do when it has no work?", q2:"Who should own the flight FSM context?", q3:"Why should timeout handling be explicit?" };
+    function loadRecord(){ try { return JSON.parse(localStorage.getItem(storageKey)) || { lesson:"0012", attempts:[] }; } catch (_err) { return { lesson:"0012", attempts:[] }; } }
+    function saveRecord(record){ localStorage.setItem(storageKey, JSON.stringify(record)); }
+    function updateExport(){ const record=loadRecord(); const latest={}; for(const attempt of record.attempts){ latest[attempt.question_id]=attempt; } const summary={ lesson:"0012-freertos-task-ownership-and-blocking", latest_answers:Object.keys(questions).map((id)=>({ question_id:id, question:questions[id], latest_correct:latest[id]?latest[id].correct:null, latest_answer:latest[id]?latest[id].answer_text:null })), attempts:record.attempts }; document.getElementById("quiz-export").value=JSON.stringify(summary,null,2); }
+    document.querySelectorAll("button[data-question]").forEach((button)=>{ button.addEventListener("click",()=>{ const id=button.dataset.question; const correct=button.dataset.answer==="right"; const feedback=document.getElementById(id); feedback.textContent=button.dataset.feedback; feedback.className=correct?"feedback ok":"feedback no"; const record=loadRecord(); record.attempts.push({ question_id:id, answer_text:button.textContent.trim(), correct, timestamp:new Date().toISOString() }); saveRecord(record); updateExport(); }); });
+    document.getElementById("export-results").addEventListener("click", updateExport);
+    document.getElementById("reset-results").addEventListener("click",()=>{ localStorage.removeItem(storageKey); updateExport(); document.querySelectorAll(".feedback").forEach((node)=>{ node.textContent=""; node.className="feedback"; }); });
+    updateExport();
+  </script>
+</body>
+</html>

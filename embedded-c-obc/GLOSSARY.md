@@ -168,8 +168,20 @@ This is the quick dictionary for terms learned in the lessons. Keep definitions 
 **task**
 : A schedulable FreeRTOS thread of execution. In this workspace, a task should usually own long-running module state such as the flight FSM context.
 
+**blocked**
+: A task state where the task is waiting for time, a notification, a queue item, a semaphore, or another event instead of using CPU time.
+
+**busy polling**
+: Repeatedly checking for work in a tight loop without blocking or delaying. Usually a review smell in RTOS task code.
+
+**tick**
+: The periodic kernel time unit used by FreeRTOS for delays, timeouts, and scheduling decisions.
+
 **task notification**
 : A lightweight FreeRTOS mechanism for signaling a specific task. Useful when a compact event or wakeup is enough.
+
+**notification bits**
+: A pattern where the task notification value is treated as a bitfield of pending work flags.
 
 **queue**
 : A FreeRTOS object for passing items between tasks or from an ISR to a task. Use when event values or samples must be buffered in order.

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FreeRTOS Task Notifications - Quick Reference</title>
+  <style>
+    :root { --ink:#12202b; --line:#d5dde8; --panel:#f7f9fc; --accent:#0f766e; --warn:#9a3412; }
+    body { margin:0; color:var(--ink); background:white; font:16px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    main { max-width:980px; margin:0 auto; padding:32px 24px 48px; }
+    h1 { margin:0 0 12px; padding-bottom:12px; border-bottom:3px solid var(--accent); font-size:34px; line-height:1.1; }
+    h2 { margin:28px 0 10px; font-size:21px; }
+    p, li { max-width:78ch; }
+    code, pre { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:0.94em; }
+    pre { overflow-x:auto; padding:14px; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+    .box { margin:16px 0; padding:14px; border:1px solid var(--line); border-left:5px solid var(--accent); border-radius:8px; background:var(--panel); }
+    .warn { border-left-color:var(--warn); }
+    @media print { main { padding:18mm; } .box,pre { break-inside:avoid; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>FreeRTOS Task Notifications</h1>
+    <p>A reference for compact direct-to-task signaling.</p>
+    <h2>Bit Pattern</h2>
+    <pre><code>#define NOTIFY_APOGEE (1u &lt;&lt; 2)
+
+/* Producer side. */
+post_notification_bits(NOTIFY_APOGEE);
+
+/* Task side. */
+uint32_t bits;
+if (wait_notification_bits(&bits))
+{
+    if ((bits &amp; NOTIFY_APOGEE) != 0u)
+    {
+        dispatch_apogee_event();
+    }
+}</code></pre>
+    <h2>Rules</h2>
+    <ul>
+      <li>Use notifications when one known task should be signaled.</li>
+      <li>Use bit notifications when each bit means work is pending.</li>
+      <li>Remember that repeated identical bits coalesce.</li>
+      <li>Use a queue when every item or order matters.</li>
+      <li>Use the FreeRTOS <code>FromISR</code> API variants from interrupt context.</li>
+    </ul>
+    <div class="box warn">
+      <p>A notification bit is not an event log. If you need a log or ordered sequence, use a queue or ring buffer.</p>
+    </div>
+    <h2>Sources</h2>
+    <ul>
+      <li><a href="https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/03-Direct-to-task-notifications/01-Task-notifications">FreeRTOS task notification feature guide</a></li>
+      <li><a href="https://www.freertos.org/Documentation/02-Kernel/04-API-references/05-Direct-to-task-notifications/00-RTOS-task-notifications">FreeRTOS task notification API reference</a></li>
+      <li><a href="https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/02-Queues-mutexes-and-semaphores/01-Queues">FreeRTOS queue feature guide</a></li>
+    </ul>
+  </main>
+</body>
+</html>
