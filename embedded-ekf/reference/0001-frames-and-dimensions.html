@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reference 0001: Frames And Dimensions</title>
+  <style>
+    :root {
+      --ink: #18212b;
+      --muted: #52606d;
+      --line: #d9e0e8;
+      --panel: #f6f8fb;
+      --accent: #0f6b63;
+    }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background: #fff;
+      line-height: 1.5;
+    }
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 30px;
+      letter-spacing: 0;
+    }
+    h2 {
+      margin: 28px 0 10px;
+      font-size: 20px;
+    }
+    p {
+      color: var(--muted);
+      margin: 0 0 14px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 20px;
+      font-size: 15px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--line);
+      padding: 9px 8px;
+    }
+    th {
+      color: var(--accent);
+      background: var(--panel);
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: var(--panel);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+    .callout {
+      border-left: 4px solid var(--accent);
+      background: var(--panel);
+      padding: 12px 14px;
+      margin: 18px 0;
+    }
+    @media print {
+      main { max-width: none; padding: 0; }
+      .callout { break-inside: avoid; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Reference 0001: Frames And Dimensions</h1>
+    <p>A compact reference for the course's first contract.</p>
+
+    <h2>Frames</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Frame</th>
+          <th>Axes</th>
+          <th>Course meaning</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Local NED</td>
+          <td>x north, y east, z down</td>
+          <td>Navigation frame fixed at the launch pad.</td>
+        </tr>
+        <tr>
+          <td>Body</td>
+          <td><code>x_b</code> nose-forward, <code>y_b</code> right, <code>z_b</code> down</td>
+          <td>Rocket-fixed frame used by IMU measurements.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>State Dimensions</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Constant</th>
+          <th>Value</th>
+          <th>Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>ESKF_VEC3_DIM</code></td>
+          <td>3</td>
+          <td>North/east/down or body x/y/z vector.</td>
+        </tr>
+        <tr>
+          <td><code>ESKF_QUAT_DIM</code></td>
+          <td>4</td>
+          <td>Quaternion scalar/vector storage.</td>
+        </tr>
+        <tr>
+          <td><code>ESKF_NOMINAL_STATE_DIM</code></td>
+          <td>16</td>
+          <td><code>p[3] + v[3] + q[4] + b_g[3] + b_a[3]</code>.</td>
+        </tr>
+        <tr>
+          <td><code>ESKF_ERROR_STATE_DIM</code></td>
+          <td>15</td>
+          <td><code>dp[3] + dv[3] + dtheta[3] + dbg[3] + dba[3]</code>.</td>
+        </tr>
+        <tr>
+          <td><code>ESKF_IMU_NOISE_DIM</code></td>
+          <td>12</td>
+          <td>Gyro noise, accel noise, gyro-bias random walk, accel-bias random walk.</td>
+        </tr>
+        <tr>
+          <td><code>ESKF_GPS_POS_VEL_DIM</code></td>
+          <td>6</td>
+          <td>GPS position plus velocity in local NED.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>Key rule:</strong> The quaternion has four stored values, but the attitude
+      error has three values. That distinction is the core reason this course is an
+      ESKF course rather than a plain state-vector EKF course.
+    </div>
+  </main>
+</body>
+</html>
+

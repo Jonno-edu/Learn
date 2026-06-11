@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0006: IMU Measurement Model</title>
+  <style>
+    :root { --ink:#17202a; --muted:#53616f; --line:#d8dee6; --panel:#f6f8fb; --accent:#0f6b63; }
+    body { margin:0; font-family:Arial, Helvetica, sans-serif; color:var(--ink); background:#fff; line-height:1.55; }
+    main { max-width:1000px; margin:0 auto; padding:32px 20px 56px; }
+    h1 { margin:0 0 8px; font-size:34px; letter-spacing:0; }
+    h2 { margin:30px 0 10px; font-size:22px; letter-spacing:0; }
+    p { margin:0 0 14px; }
+    a { color:#0f6b63; font-weight:700; }
+    code { font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:var(--panel); padding:1px 5px; border-radius:4px; }
+    pre { overflow-x:auto; background:#101820; color:#f6f8fb; padding:14px; border-radius:6px; font-size:14px; }
+    table { width:100%; border-collapse:collapse; margin:12px 0 20px; }
+    th, td { text-align:left; vertical-align:top; border-bottom:1px solid var(--line); padding:9px 8px; }
+    th { background:var(--panel); color:var(--accent); }
+    .lead { color:var(--muted); max-width:780px; font-size:17px; }
+    .callout { border-left:4px solid var(--accent); background:var(--panel); padding:12px 14px; margin:18px 0; }
+    details { border:1px solid var(--line); border-radius:6px; padding:12px 14px; margin:12px 0; }
+    summary { cursor:pointer; font-weight:700; color:var(--accent); }
+    @media print { main { max-width:none; padding:0; } a { color:inherit; text-decoration:none; } }
+  </style>
+</head>
+<body>
+  <main>
+    <p><a href="index.html">Back to course index</a></p>
+    <h1>Lesson 0006: IMU Measurement Model</h1>
+    <p class="lead">
+      The IMU does not hand us position or attitude. It gives angular rate and
+      specific force, both in the body frame, both with bias and noise.
+    </p>
+
+    <section>
+      <h2>The One Thing</h2>
+      <p>
+        Prediction starts by correcting raw IMU measurements for estimated bias:
+      </p>
+      <pre><code>omega_b = gyro_rad_s - b_g
+f_b     = accel_mps2 - b_a</code></pre>
+      <p>
+        <code>omega_b</code> drives attitude prediction. <code>f_b</code> is
+        rotated into navigation coordinates and combined with gravity during
+        velocity and position prediction.
+      </p>
+    </section>
+
+    <section>
+      <h2>Specific Force And Gravity</h2>
+      <p>
+        Accelerometers measure specific force, not directly "vehicle
+        acceleration." In this course we use:
+      </p>
+      <pre><code>a_n = rotate(q_nb, f_b) + g_n
+g_n = [0, 0, 9.80665] m/s^2</code></pre>
+      <p>
+        For a stationary rocket, <code>a_n</code> should be approximately zero,
+        so the rotated specific force must cancel gravity.
+      </p>
+      <div class="callout">
+        This is why sign conventions matter. In local NED, positive z is down,
+        so gravity is positive in the third component.
+      </div>
+    </section>
+
+    <section>
+      <h2>C Target</h2>
+      <p>
+        When active, define the IMU sample and bias-correction helpers.
+      </p>
+      <pre><code>typedef struct {
+    eskf_real_t gyro_rad_s[ESKF_VEC3_DIM];
+    eskf_real_t accel_mps2[ESKF_VEC3_DIM];
+} ImuSample;
+
+EskfStatus imu_correct_gyro(const ImuSample *imu,
+                            const eskf_real_t b_g[ESKF_VEC3_DIM],
+                            eskf_real_t omega_b[ESKF_VEC3_DIM]);
+
+EskfStatus imu_correct_accel(const ImuSample *imu,
+                             const eskf_real_t b_a[ESKF_VEC3_DIM],
+                             eskf_real_t f_b[ESKF_VEC3_DIM]);</code></pre>
+      <p>
+        Tests should check units, bias subtraction, null pointer handling, and
+        that the helpers do not modify the input sample.
+      </p>
+    </section>
+
+    <section>
+      <h2>Quick Check</h2>
+      <details>
+        <summary>Why do we not add gravity inside the accelerometer correction helper?</summary>
+        <p>
+          Bias correction is a body-frame IMU operation. Gravity is added after
+          rotating specific force into the navigation frame.
+        </p>
+      </details>
+    </section>
+  </main>
+</body>
+</html>
+

@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Embedded ESKF Course Index</title>
+  <style>
+    :root {
+      --ink: #17202a;
+      --muted: #53616f;
+      --line: #d8dee6;
+      --panel: #f6f8fb;
+      --accent: #0f6b63;
+    }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background: #fff;
+      line-height: 1.55;
+    }
+    main {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 34px 20px 56px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 34px;
+      letter-spacing: 0;
+    }
+    p {
+      margin: 0 0 16px;
+      color: var(--muted);
+    }
+    a {
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+    }
+    ol {
+      list-style: none;
+      padding: 0;
+      margin: 24px 0;
+      display: grid;
+      gap: 12px;
+    }
+    li {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 14px;
+      background: #fff;
+    }
+    .meta {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 400;
+    }
+    .active {
+      border-left: 5px solid var(--accent);
+      background: var(--panel);
+    }
+    .refs {
+      border-top: 1px solid var(--line);
+      margin-top: 28px;
+      padding-top: 18px;
+    }
+    @media print {
+      main { max-width: none; padding: 0; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Embedded ESKF Course Index</h1>
+    <p>
+      The first half of the course is now available as reading and implementation
+      guides. Lesson 1 is the active red-test exercise; later lessons define the
+      next C targets without enabling all tests at once.
+    </p>
+
+    <ol>
+      <li class="active">
+        <a href="0001-course-contract-and-frames.html">0001 - Course Contract And Frames</a>
+        <span class="meta">Active exercise: dimension constants and frame contract.</span>
+      </li>
+      <li>
+        <a href="0002-nominal-vs-error-state.html">0002 - Nominal State vs Error State</a>
+        <span class="meta">C target: estimator structs and initialization contract.</span>
+      </li>
+      <li>
+        <a href="0003-vector-and-matrix-groundwork.html">0003 - Vector And Matrix Groundwork</a>
+        <span class="meta">C target: vec3 helpers, fixed-size arrays, and skew matrix.</span>
+      </li>
+      <li>
+        <a href="0004-quaternion-basics.html">0004 - Quaternion Basics</a>
+        <span class="meta">C target: normalize, multiply, conjugate/inverse.</span>
+      </li>
+      <li>
+        <a href="0005-rotate-vector-with-q-nb.html">0005 - Rotate A Vector With q_nb</a>
+        <span class="meta">C target: body-to-navigation vector rotation.</span>
+      </li>
+      <li>
+        <a href="0006-imu-measurement-model.html">0006 - IMU Measurement Model</a>
+        <span class="meta">C target: sample types, bias correction, validation.</span>
+      </li>
+      <li>
+        <a href="0007-nominal-attitude-prediction.html">0007 - Nominal Attitude Prediction</a>
+        <span class="meta">C target: integrate gyro into q_nb.</span>
+      </li>
+      <li>
+        <a href="0008-nominal-velocity-position-prediction.html">0008 - Nominal Velocity And Position Prediction</a>
+        <span class="meta">C target: rotate specific force, add gravity, integrate v and p.</span>
+      </li>
+      <li>
+        <a href="0009-covariance-meaning.html">0009 - Covariance Meaning</a>
+        <span class="meta">C target: covariance storage, init, symmetry checks.</span>
+      </li>
+      <li>
+        <a href="0010-linearized-error-dynamics.html">0010 - Linearized Error Dynamics</a>
+        <span class="meta">C target: F and G matrix builders.</span>
+      </li>
+    </ol>
+
+    <section class="refs">
+      <p>
+        References:
+        <a href="../reference/0001-frames-and-dimensions.html">frames and dimensions</a>,
+        <a href="../reference/0002-0010-first-half-cheatsheet.html">first-half cheat sheet</a>,
+        <a href="../reference/glossary.html">glossary</a>.
+      </p>
+    </section>
+  </main>
+</body>
+</html>

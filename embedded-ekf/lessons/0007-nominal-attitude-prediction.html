@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0007: Nominal Attitude Prediction</title>
+  <style>
+    :root { --ink:#17202a; --muted:#53616f; --line:#d8dee6; --panel:#f6f8fb; --accent:#0f6b63; }
+    body { margin:0; font-family:Arial, Helvetica, sans-serif; color:var(--ink); background:#fff; line-height:1.55; }
+    main { max-width:1000px; margin:0 auto; padding:32px 20px 56px; }
+    h1 { margin:0 0 8px; font-size:34px; letter-spacing:0; }
+    h2 { margin:30px 0 10px; font-size:22px; letter-spacing:0; }
+    p { margin:0 0 14px; }
+    a { color:#0f6b63; font-weight:700; }
+    code { font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:var(--panel); padding:1px 5px; border-radius:4px; }
+    pre { overflow-x:auto; background:#101820; color:#f6f8fb; padding:14px; border-radius:6px; font-size:14px; }
+    table { width:100%; border-collapse:collapse; margin:12px 0 20px; }
+    th, td { text-align:left; vertical-align:top; border-bottom:1px solid var(--line); padding:9px 8px; }
+    th { background:var(--panel); color:var(--accent); }
+    .lead { color:var(--muted); max-width:780px; font-size:17px; }
+    .callout { border-left:4px solid var(--accent); background:var(--panel); padding:12px 14px; margin:18px 0; }
+    details { border:1px solid var(--line); border-radius:6px; padding:12px 14px; margin:12px 0; }
+    summary { cursor:pointer; font-weight:700; color:var(--accent); }
+    @media print { main { max-width:none; padding:0; } a { color:inherit; text-decoration:none; } }
+  </style>
+</head>
+<body>
+  <main>
+    <p><a href="index.html">Back to course index</a></p>
+    <h1>Lesson 0007: Nominal Attitude Prediction</h1>
+    <p class="lead">
+      Gyro measurements update the nominal quaternion. This lesson turns angular
+      rate over a small time step into a quaternion increment.
+    </p>
+
+    <section>
+      <h2>The One Thing</h2>
+      <p>
+        The corrected body angular rate is integrated over <code>dt_s</code>:
+      </p>
+      <pre><code>dtheta_b = omega_b * dt_s</code></pre>
+      <p>
+        That small rotation becomes a delta quaternion, which is composed with
+        the current <code>q_nb</code>. The result is normalized before returning.
+      </p>
+    </section>
+
+    <section>
+      <h2>Small Rotation To Quaternion</h2>
+      <p>
+        For small angles, a useful first implementation is:
+      </p>
+      <pre><code>angle = norm(dtheta_b)
+axis  = dtheta_b / angle
+dq    = [cos(angle/2), axis_x*sin(angle/2), axis_y*sin(angle/2), axis_z*sin(angle/2)]</code></pre>
+      <p>
+        If the angle is extremely small, use the identity quaternion or a small
+        angle approximation to avoid dividing by zero.
+      </p>
+    </section>
+
+    <section>
+      <h2>C Target</h2>
+      <pre><code>EskfStatus eskf_predict_attitude(eskf_real_t q_nb[ESKF_QUAT_DIM],
+                                 const eskf_real_t gyro_rad_s[ESKF_VEC3_DIM],
+                                 const eskf_real_t b_g[ESKF_VEC3_DIM],
+                                 eskf_real_t dt_s);</code></pre>
+      <table>
+        <thead>
+          <tr><th>Test</th><th>Expected behavior</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Zero gyro</td><td>Quaternion remains unchanged.</td></tr>
+          <tr><td>Invalid dt</td><td><code>dt_s &lt;= 0</code> is rejected.</td></tr>
+          <tr><td>Known small yaw</td><td>Matches expected delta quaternion within tolerance.</td></tr>
+          <tr><td>Repeated updates</td><td>Quaternion norm stays near 1.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Quick Check</h2>
+      <details>
+        <summary>Why normalize after attitude prediction?</summary>
+        <p>
+          Integration and floating-point multiplication can move the quaternion
+          away from unit length. Normalization keeps it valid as a rotation.
+        </p>
+      </details>
+    </section>
+  </main>
+</body>
+</html>
+

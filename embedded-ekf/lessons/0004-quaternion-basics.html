@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0004: Quaternion Basics</title>
+  <style>
+    :root { --ink:#17202a; --muted:#53616f; --line:#d8dee6; --panel:#f6f8fb; --accent:#0f6b63; }
+    body { margin:0; font-family:Arial, Helvetica, sans-serif; color:var(--ink); background:#fff; line-height:1.55; }
+    main { max-width:1000px; margin:0 auto; padding:32px 20px 56px; }
+    h1 { margin:0 0 8px; font-size:34px; letter-spacing:0; }
+    h2 { margin:30px 0 10px; font-size:22px; letter-spacing:0; }
+    p { margin:0 0 14px; }
+    a { color:#0f6b63; font-weight:700; }
+    code { font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:var(--panel); padding:1px 5px; border-radius:4px; }
+    pre { overflow-x:auto; background:#101820; color:#f6f8fb; padding:14px; border-radius:6px; font-size:14px; }
+    table { width:100%; border-collapse:collapse; margin:12px 0 20px; }
+    th, td { text-align:left; vertical-align:top; border-bottom:1px solid var(--line); padding:9px 8px; }
+    th { background:var(--panel); color:var(--accent); }
+    .lead { color:var(--muted); max-width:780px; font-size:17px; }
+    .callout { border-left:4px solid var(--accent); background:var(--panel); padding:12px 14px; margin:18px 0; }
+    details { border:1px solid var(--line); border-radius:6px; padding:12px 14px; margin:12px 0; }
+    summary { cursor:pointer; font-weight:700; color:var(--accent); }
+    @media print { main { max-width:none; padding:0; } a { color:inherit; text-decoration:none; } }
+  </style>
+</head>
+<body>
+  <main>
+    <p><a href="index.html">Back to course index</a></p>
+    <h1>Lesson 0004: Quaternion Basics</h1>
+    <p class="lead">
+      Quaternions store attitude without Euler-angle singularities, but they
+      only behave as rotations when kept near unit length.
+    </p>
+
+    <section>
+      <h2>The One Thing</h2>
+      <p>
+        A quaternion is four stored values. In this course we use scalar-first
+        layout:
+      </p>
+      <pre><code>q = [w, x, y, z]</code></pre>
+      <p>
+        The identity rotation is <code>[1, 0, 0, 0]</code>. Any attitude
+        quaternion used by the estimator should be normalized after operations
+        that can accumulate numerical error.
+      </p>
+    </section>
+
+    <section>
+      <h2>Core Operations</h2>
+      <table>
+        <thead>
+          <tr><th>Operation</th><th>Meaning</th><th>Test idea</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>normalize</code></td><td>Scale quaternion to unit norm.</td><td><code>[2,0,0,0]</code> becomes <code>[1,0,0,0]</code>.</td></tr>
+          <tr><td><code>multiply</code></td><td>Compose rotations.</td><td>Identity multiplied by any unit quaternion returns the same quaternion.</td></tr>
+          <tr><td><code>conjugate</code></td><td>Negate vector part.</td><td><code>[w,x,y,z]</code> becomes <code>[w,-x,-y,-z]</code>.</td></tr>
+          <tr><td><code>inverse</code></td><td>Undo a unit rotation.</td><td>For unit quaternions, inverse equals conjugate.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout">
+        Quaternion multiplication is not commutative. <code>a*b</code> and
+        <code>b*a</code> usually mean different rotations.
+      </div>
+    </section>
+
+    <section>
+      <h2>C Target</h2>
+      <p>
+        When active, create <code>include/eskf/eskf_quat.h</code> and
+        <code>src/eskf_quat.c</code>.
+      </p>
+      <pre><code>EskfStatus quat_normalize(eskf_real_t q[ESKF_QUAT_DIM]);
+EskfStatus quat_multiply(const eskf_real_t a[ESKF_QUAT_DIM],
+                         const eskf_real_t b[ESKF_QUAT_DIM],
+                         eskf_real_t out[ESKF_QUAT_DIM]);
+EskfStatus quat_conjugate(const eskf_real_t q[ESKF_QUAT_DIM],
+                          eskf_real_t out[ESKF_QUAT_DIM]);</code></pre>
+      <p>
+        Tests should include identity behavior, non-commutativity, and rejection
+        of a zero-norm quaternion during normalization.
+      </p>
+    </section>
+
+    <section>
+      <h2>Quick Check</h2>
+      <details>
+        <summary>Why normalize quaternions in estimator code?</summary>
+        <p>
+          Floating-point integration and multiplication introduce small errors.
+          Normalization keeps the quaternion on the unit sphere so it remains a
+          valid rotation representation.
+        </p>
+      </details>
+    </section>
+  </main>
+</body>
+</html>
+

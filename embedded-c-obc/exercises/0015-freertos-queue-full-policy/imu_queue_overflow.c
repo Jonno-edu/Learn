@@ -26,11 +26,11 @@ ImuDropPolicyResult imu_queue_send_with_policy(
         return IMU_DROP_POLICY_FAULT;
     }
 
-    /*
-     * TODO: call xQueueSend(runtime->sample_queue, sample, wait_ticks).
-     * Feed pdPASS into imu_drop_policy_record_send_ok.
-     * Feed any other result into imu_drop_policy_record_send_failed.
-     */
-    (void)wait_ticks;
-    return IMU_DROP_POLICY_FAULT;
+    BaseType_t sent = xQueueSend(runtime->sample_queue, sample, wait_ticks);
+    if (sent == pdPASS)
+    {
+        return imu_drop_policy_record_send_ok(&runtime->drop_policy);
+    }
+
+    return imu_drop_policy_record_send_failed(&runtime->drop_policy);
 }

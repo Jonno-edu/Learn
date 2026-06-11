@@ -17,14 +17,35 @@ void imu_drop_policy_init(ImuDropPolicy *policy, uint32_t drop_fault_threshold)
 
 ImuDropPolicyResult imu_drop_policy_record_send_ok(ImuDropPolicy *policy)
 {
-    /* TODO: update sent_sample_count without clearing a latched fault. */
-    (void)policy;
+    if (policy == NULL)
+    {
+        return IMU_DROP_POLICY_FAULT;
+    }
+
+    policy->sent_sample_count += 1u;
+
+    if (!policy->fault_latched)
+    {
+        return IMU_DROP_POLICY_OK;
+    }
+
     return IMU_DROP_POLICY_FAULT;
 }
 
 ImuDropPolicyResult imu_drop_policy_record_send_failed(ImuDropPolicy *policy)
 {
-    /* TODO: count the drop and latch fault when the threshold is reached. */
-    (void)policy;
-    return IMU_DROP_POLICY_FAULT;
+    if (policy == NULL)
+    {
+        return IMU_DROP_POLICY_FAULT;
+    }
+
+    policy->dropped_sample_count += 1u;
+
+    if (policy->dropped_sample_count >= policy->drop_fault_threshold)
+    {
+        policy->fault_latched = true;
+        return IMU_DROP_POLICY_FAULT;
+    }
+
+    return IMU_DROP_POLICY_DROPPED;
 }

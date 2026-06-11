@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0002: Nominal State vs Error State</title>
+  <style>
+    :root { --ink:#17202a; --muted:#53616f; --line:#d8dee6; --panel:#f6f8fb; --accent:#0f6b63; }
+    body { margin:0; font-family:Arial, Helvetica, sans-serif; color:var(--ink); background:#fff; line-height:1.55; }
+    main { max-width:1000px; margin:0 auto; padding:32px 20px 56px; }
+    h1 { margin:0 0 8px; font-size:34px; letter-spacing:0; }
+    h2 { margin:30px 0 10px; font-size:22px; letter-spacing:0; }
+    h3 { margin:20px 0 8px; font-size:17px; letter-spacing:0; }
+    p { margin:0 0 14px; }
+    a { color:var(--accent); font-weight:700; }
+    code { font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:var(--panel); padding:1px 5px; border-radius:4px; }
+    pre { overflow-x:auto; background:#101820; color:#f6f8fb; padding:14px; border-radius:6px; font-size:14px; }
+    table { width:100%; border-collapse:collapse; margin:12px 0 20px; }
+    th, td { text-align:left; vertical-align:top; border-bottom:1px solid var(--line); padding:9px 8px; }
+    th { background:var(--panel); color:var(--accent); }
+    .lead { color:var(--muted); max-width:780px; font-size:17px; }
+    .callout { border-left:4px solid var(--accent); background:var(--panel); padding:12px 14px; margin:18px 0; }
+    details { border:1px solid var(--line); border-radius:6px; padding:12px 14px; margin:12px 0; }
+    summary { cursor:pointer; font-weight:700; color:var(--accent); }
+    @media print { main { max-width:none; padding:0; } a { color:inherit; text-decoration:none; } }
+  </style>
+</head>
+<body>
+  <main>
+    <p><a href="index.html">Back to course index</a></p>
+    <h1>Lesson 0002: Nominal State vs Error State</h1>
+    <p class="lead">
+      The ESKF carries two ideas at once: a normal physical state used for
+      prediction, and a small error state used for uncertainty and correction.
+    </p>
+
+    <section>
+      <h2>The One Thing</h2>
+      <p>
+        The nominal state is the estimator's best current navigation answer.
+        The error state is the small correction we estimate around that answer.
+        The filter covariance belongs to the error state, not directly to the
+        nominal quaternion storage.
+      </p>
+      <div class="callout">
+        In this course, <code>P</code> is 15x15 because it describes
+        <code>[dp, dv, dtheta, dbg, dba]</code>, not the 16 stored nominal values.
+      </div>
+    </section>
+
+    <section>
+      <h2>Nominal State</h2>
+      <table>
+        <thead>
+          <tr><th>Field</th><th>Meaning</th><th>Frame</th><th>Units</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>p_n[3]</code></td><td>Position</td><td>Local NED</td><td>m</td></tr>
+          <tr><td><code>v_n[3]</code></td><td>Velocity</td><td>Local NED</td><td>m/s</td></tr>
+          <tr><td><code>q_nb[4]</code></td><td>Body to navigation attitude</td><td>Maps body to NED</td><td>unitless</td></tr>
+          <tr><td><code>b_g[3]</code></td><td>Gyro bias</td><td>Body</td><td>rad/s</td></tr>
+          <tr><td><code>b_a[3]</code></td><td>Accelerometer bias</td><td>Body</td><td>m/s^2</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Error State</h2>
+      <table>
+        <thead>
+          <tr><th>Field</th><th>Meaning</th><th>Dimension</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>dp[3]</code></td><td>Small position correction in local NED</td><td>3</td></tr>
+          <tr><td><code>dv[3]</code></td><td>Small velocity correction in local NED</td><td>3</td></tr>
+          <tr><td><code>dtheta[3]</code></td><td>Small attitude correction</td><td>3</td></tr>
+          <tr><td><code>dbg[3]</code></td><td>Small gyro-bias correction</td><td>3</td></tr>
+          <tr><td><code>dba[3]</code></td><td>Small accelerometer-bias correction</td><td>3</td></tr>
+        </tbody>
+      </table>
+      <p>
+        The correction <code>dtheta</code> is not another quaternion. It is a
+        small rotation vector that will later be converted into a small quaternion
+        during error injection.
+      </p>
+    </section>
+
+    <section>
+      <h2>C Target</h2>
+      <p>
+        When this lesson becomes active, create the first state structs in
+        <code>include/eskf/eskf_state.h</code>.
+      </p>
+      <pre><code>typedef struct {
+    eskf_real_t p_n[ESKF_VEC3_DIM];
+    eskf_real_t v_n[ESKF_VEC3_DIM];
+    eskf_real_t q_nb[ESKF_QUAT_DIM];
+    eskf_real_t b_g[ESKF_VEC3_DIM];
+    eskf_real_t b_a[ESKF_VEC3_DIM];
+} EskfNominalState;
+
+typedef struct {
+    EskfNominalState nominal;
+    eskf_real_t P[ESKF_ERROR_STATE_DIM][ESKF_ERROR_STATE_DIM];
+} Eskf;</code></pre>
+      <p>
+        The first tests should check that initialization gives zero position,
+        zero velocity, identity quaternion, zero biases, and a finite covariance
+        diagonal from config.
+      </p>
+    </section>
+
+    <section>
+      <h2>Quick Check</h2>
+      <details>
+        <summary>Why does the covariance not use the 16 nominal-state dimension?</summary>
+        <p>
+          Because covariance tracks the small error vector. The quaternion is
+          stored with four values, but attitude uncertainty is represented as a
+          three-value small-angle error.
+        </p>
+      </details>
+    </section>
+  </main>
+</body>
+</html>
+

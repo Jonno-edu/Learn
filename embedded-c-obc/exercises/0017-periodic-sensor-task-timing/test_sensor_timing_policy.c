@@ -6,7 +6,7 @@
 int main(void)
 {
     assert(sensor_period_ms_to_ticks(10u, 1000u) == 10u);
-    assert(sensor_period_ms_to_ticks(1u, 100u) == 1u);
+    assert(sensor_period_ms_to_ticks(1u, 100u) == 1u);    
     assert(sensor_period_ms_to_ticks(3u, 1000u) == 3u);
     assert(sensor_period_ms_to_ticks(0u, 1000u) == 0u);
     assert(sensor_period_ms_to_ticks(10u, 0u) == 0u);

@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0001: Course Contract And Frames</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17202a;
+      --muted: #52606d;
+      --line: #d9e0e8;
+      --panel: #f6f8fb;
+      --accent: #0f6b63;
+      --warn: #8a5a00;
+      --pass: #146c43;
+      --fail: #9d1c20;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background: #ffffff;
+      line-height: 1.55;
+    }
+    main {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 32px 20px 56px;
+    }
+    header {
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 18px;
+      margin-bottom: 26px;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 34px;
+      letter-spacing: 0;
+    }
+    h2 {
+      margin: 30px 0 10px;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+    h3 {
+      margin: 20px 0 8px;
+      font-size: 17px;
+      letter-spacing: 0;
+    }
+    p {
+      margin: 0 0 14px;
+    }
+    a {
+      color: var(--accent);
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: var(--panel);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+    pre {
+      overflow-x: auto;
+      background: #101820;
+      color: #f6f8fb;
+      padding: 14px;
+      border-radius: 6px;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 20px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--line);
+      padding: 9px 8px;
+    }
+    th {
+      background: var(--panel);
+      color: var(--accent);
+    }
+    .lead {
+      color: var(--muted);
+      max-width: 760px;
+      font-size: 17px;
+    }
+    .callout {
+      border-left: 4px solid var(--accent);
+      background: var(--panel);
+      padding: 12px 14px;
+      margin: 18px 0;
+    }
+    .warning {
+      border-left-color: var(--warn);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin: 16px 0;
+    }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 14px;
+      background: #fff;
+    }
+    .panel h3 {
+      margin-top: 0;
+    }
+    .quiz {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+    .quiz button, .export button {
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: #fff;
+      border-radius: 4px;
+      padding: 8px 10px;
+      font: inherit;
+      cursor: pointer;
+      margin: 4px 6px 4px 0;
+    }
+    .quiz button.secondary, .export button.secondary {
+      background: #fff;
+      color: var(--accent);
+    }
+    .feedback {
+      margin-top: 10px;
+      font-weight: 700;
+    }
+    .feedback.pass {
+      color: var(--pass);
+    }
+    .feedback.fail {
+      color: var(--fail);
+    }
+    textarea {
+      width: 100%;
+      min-height: 150px;
+      margin-top: 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px;
+    }
+    @media (max-width: 760px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+      h1 {
+        font-size: 29px;
+      }
+    }
+    @media print {
+      main {
+        max-width: none;
+        padding: 0;
+      }
+      .quiz, .export {
+        display: none;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Lesson 0001: Course Contract And Frames</h1>
+      <p class="lead">
+        This lesson locks the first estimator contract: which frames exist, which
+        quantities are measured, and which dimensions the C code must never blur.
+      </p>
+      <p><a href="index.html">Back to course index</a></p>
+    </header>
+
+    <section>
+      <h2>The One Thing</h2>
+      <p>
+        Before writing estimator math, we need a shared contract. Every vector,
+        quaternion, covariance block, and measurement must have an agreed frame,
+        unit, and dimension.
+      </p>
+      <p>
+        This is not paperwork. In an ESKF, a wrong frame can look like a tuning
+        problem, a wrong sign can look like a sensor problem, and a wrong matrix
+        dimension can still compile if the code is too generic. Lesson 1 prevents
+        those failures before the filter grows.
+      </p>
+      <div class="callout">
+        The habit to build: when you say <code>p</code>, <code>v</code>,
+        <code>q_nb</code>, <code>P</code>, or <code>gps</code>, you should be able
+        to say its frame and dimension immediately.
+      </div>
+    </section>
+
+    <section>
+      <h2>Course V1 Scope</h2>
+      <div class="grid">
+        <div class="panel">
+          <h3>Included</h3>
+          <ul>
+            <li>IMU prediction from gyro and accelerometer samples.</li>
+            <li>GPS position and velocity updates in local NED.</li>
+            <li>15-error-state ESKF core in standalone C99.</li>
+            <li>Small tests and toy callers.</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>Excluded For V1</h3>
+          <ul>
+            <li>OBC integration and RTOS tasks.</li>
+            <li>Barometer, magnetometer, drag, aero, and rail constraints.</li>
+            <li>ECEF/geodetic conversion.</li>
+            <li>Formal flight-readiness or compliance claims.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Frames</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Frame</th>
+            <th>Axes</th>
+            <th>Use</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Local NED</td>
+            <td>x north, y east, z down</td>
+            <td>Navigation frame fixed at the launch pad.</td>
+          </tr>
+          <tr>
+            <td>Body</td>
+            <td><code>x_b</code> nose-forward, <code>y_b</code> right, <code>z_b</code> down</td>
+            <td>Rocket-fixed frame used by the IMU.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        The attitude quaternion is named <code>q_nb</code>. In this course it rotates
+        body-frame vectors into the navigation frame.
+      </p>
+      <pre><code>v_n = rotate(q_nb, v_b)</code></pre>
+      <p>
+        Reference: VectorNav has a concise inertial-navigation primer on
+        <a href="https://www.vectornav.com/resources/inertial-navigation-primer/math-fundamentals/math-refframes">reference frames</a>.
+      </p>
+    </section>
+
+    <section>
+      <h2>State Contract</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>State</th>
+            <th>Pieces</th>
+            <th>Dimension</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Nominal</td>
+            <td><code>p_n[3]</code>, <code>v_n[3]</code>, <code>q_nb[4]</code>, <code>b_g[3]</code>, <code>b_a[3]</code></td>
+            <td>16 stored values</td>
+          </tr>
+          <tr>
+            <td>Error</td>
+            <td><code>dp[3]</code>, <code>dv[3]</code>, <code>dtheta[3]</code>, <code>dbg[3]</code>, <code>dba[3]</code></td>
+            <td>15 correction values</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout warning">
+        The attitude quaternion stores four values, but the attitude error is a
+        three-value small-angle vector. That is the first major ESKF distinction.
+      </div>
+      <p>
+        Reference: Joan Sola's
+        <a href="https://arxiv.org/abs/1711.02508">quaternion ESKF paper</a>
+        is the course's main source for attitude-error handling.
+      </p>
+    </section>
+
+    <section>
+      <h2>Why The Dimensions Are The First Code</h2>
+      <p>
+        The dimension constants become the shared vocabulary for every later
+        function. They will decide the size of <code>P</code>, <code>F</code>,
+        <code>G</code>, GPS residuals, Kalman gain matrices, and correction vectors.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Later object</th>
+            <th>Dimension source</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>P</code></td>
+            <td><code>ESKF_ERROR_STATE_DIM x ESKF_ERROR_STATE_DIM</code></td>
+          </tr>
+          <tr>
+            <td><code>H_gps_pos_vel</code></td>
+            <td><code>ESKF_GPS_POS_VEL_DIM x ESKF_ERROR_STATE_DIM</code></td>
+          </tr>
+          <tr>
+            <td><code>K_gps_pos_vel</code></td>
+            <td><code>ESKF_ERROR_STATE_DIM x ESKF_GPS_POS_VEL_DIM</code></td>
+          </tr>
+          <tr>
+            <td><code>G</code></td>
+            <td><code>ESKF_ERROR_STATE_DIM x ESKF_IMU_NOISE_DIM</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>C Task</h2>
+      <p>
+        Open <code>include/eskf/eskf_types.h</code>. Replace the placeholder dimension
+        constants with the values from the contract above.
+      </p>
+      <pre><code>make test</code></pre>
+      <p>
+        The first run should fail. After the constants are correct, it should pass
+        without compiler warnings.
+      </p>
+    </section>
+
+    <section class="quiz" aria-labelledby="quiz-title">
+      <h2 id="quiz-title">Quick Check</h2>
+      <p><strong>Question:</strong> Why is the nominal state dimension 16 while the error state dimension is 15?</p>
+      <button type="button" data-answer="wrong">Because GPS adds one extra dimension to the nominal state.</button>
+      <button type="button" data-answer="right">Because the quaternion stores 4 values, but attitude error uses 3 small-angle values.</button>
+      <button type="button" data-answer="wrong">Because gyro bias is only present in the error state.</button>
+      <p id="quiz-feedback" class="feedback" aria-live="polite"></p>
+    </section>
+
+    <section class="export">
+      <h2>Export Your Lesson Record</h2>
+      <p>
+        Use this after you answer the quiz or finish the C task. Paste it back to
+        the agent when you want review.
+      </p>
+      <button type="button" id="export-record">Export quiz record</button>
+      <button type="button" class="secondary" id="clear-record">Clear local record</button>
+      <textarea id="record-output" readonly aria-label="Exported lesson record"></textarea>
+    </section>
+
+    <section>
+      <h2>Ask Follow-Up Questions</h2>
+      <p>
+        Ask the agent about any frame, sign, dimension, or naming choice that feels
+        unclear before moving on. Estimator bugs usually start as vague contracts.
+      </p>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      var key = "embedded-ekf.lesson-0001";
+      var feedback = document.getElementById("quiz-feedback");
+      var output = document.getElementById("record-output");
+      var buttons = document.querySelectorAll(".quiz button");
+
+      function loadRecord() {
+        var raw = window.localStorage.getItem(key);
+        if (raw === null) {
+          return {
+            lesson: "0001-course-contract-and-frames",
+            answered: false,
+            correct: false,
+            timestamp: null
+          };
+        }
+        return JSON.parse(raw);
+      }
+
+      function saveRecord(record) {
+        window.localStorage.setItem(key, JSON.stringify(record));
+      }
+
+      function updateFeedback(record) {
+        if (!record.answered) {
+          feedback.textContent = "";
+          feedback.className = "feedback";
+          return;
+        }
+        if (record.correct) {
+          feedback.textContent = "Correct. The stored quaternion is 4D, but the small attitude correction is 3D.";
+          feedback.className = "feedback pass";
+        } else {
+          feedback.textContent = "Not quite. Re-check the difference between stored attitude and attitude error.";
+          feedback.className = "feedback fail";
+        }
+      }
+
+      function exportRecord() {
+        var record = loadRecord();
+        output.value = JSON.stringify(record, null, 2);
+        output.focus();
+        output.select();
+      }
+
+      for (var i = 0; i < buttons.length; i += 1) {
+        buttons[i].addEventListener("click", function (event) {
+          var correct = event.target.getAttribute("data-answer") === "right";
+          var record = {
+            lesson: "0001-course-contract-and-frames",
+            answered: true,
+            correct: correct,
+            timestamp: new Date().toISOString()
+          };
+          saveRecord(record);
+          updateFeedback(record);
+        });
+      }
+
+      document.getElementById("export-record").addEventListener("click", exportRecord);
+      document.getElementById("clear-record").addEventListener("click", function () {
+        window.localStorage.removeItem(key);
+        output.value = "";
+        updateFeedback(loadRecord());
+      });
+
+      updateFeedback(loadRecord());
+    }());
+  </script>
+</body>
+</html>

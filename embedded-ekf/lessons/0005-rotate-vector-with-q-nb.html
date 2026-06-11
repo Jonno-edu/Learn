@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lesson 0005: Rotate A Vector With q_nb</title>
+  <style>
+    :root { --ink:#17202a; --muted:#53616f; --line:#d8dee6; --panel:#f6f8fb; --accent:#0f6b63; }
+    body { margin:0; font-family:Arial, Helvetica, sans-serif; color:var(--ink); background:#fff; line-height:1.55; }
+    main { max-width:1000px; margin:0 auto; padding:32px 20px 56px; }
+    h1 { margin:0 0 8px; font-size:34px; letter-spacing:0; }
+    h2 { margin:30px 0 10px; font-size:22px; letter-spacing:0; }
+    p { margin:0 0 14px; }
+    a { color:#0f6b63; font-weight:700; }
+    code { font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:var(--panel); padding:1px 5px; border-radius:4px; }
+    pre { overflow-x:auto; background:#101820; color:#f6f8fb; padding:14px; border-radius:6px; font-size:14px; }
+    table { width:100%; border-collapse:collapse; margin:12px 0 20px; }
+    th, td { text-align:left; vertical-align:top; border-bottom:1px solid var(--line); padding:9px 8px; }
+    th { background:var(--panel); color:var(--accent); }
+    .lead { color:var(--muted); max-width:780px; font-size:17px; }
+    .callout { border-left:4px solid var(--accent); background:var(--panel); padding:12px 14px; margin:18px 0; }
+    details { border:1px solid var(--line); border-radius:6px; padding:12px 14px; margin:12px 0; }
+    summary { cursor:pointer; font-weight:700; color:var(--accent); }
+    @media print { main { max-width:none; padding:0; } a { color:inherit; text-decoration:none; } }
+  </style>
+</head>
+<body>
+  <main>
+    <p><a href="index.html">Back to course index</a></p>
+    <h1>Lesson 0005: Rotate A Vector With q_nb</h1>
+    <p class="lead">
+      The estimator must rotate body-frame IMU quantities into the local NED
+      navigation frame. This lesson makes the direction of that rotation explicit.
+    </p>
+
+    <section>
+      <h2>The One Thing</h2>
+      <p>
+        In this course, <code>q_nb</code> means body to navigation. If
+        <code>v_b</code> is a vector expressed in the rocket body frame, then:
+      </p>
+      <pre><code>v_n = rotate(q_nb, v_b)</code></pre>
+      <p>
+        The name is part of the safety contract. A function that silently rotates
+        the opposite way can produce plausible numbers with the wrong physics.
+      </p>
+    </section>
+
+    <section>
+      <h2>Quaternion Vector Rotation</h2>
+      <p>
+        One common implementation embeds the vector as a pure quaternion and
+        multiplies:
+      </p>
+      <pre><code>v_quat = [0, vx, vy, vz]
+rotated = q * v_quat * inverse(q)
+out = [rotated.x, rotated.y, rotated.z]</code></pre>
+      <p>
+        Later, we can optimize this. For the first implementation, readability
+        and testability matter more than saving multiplications.
+      </p>
+    </section>
+
+    <section>
+      <h2>Test Cases</h2>
+      <table>
+        <thead>
+          <tr><th>Case</th><th>Expected behavior</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Identity quaternion</td><td><code>[1,2,3]</code> rotates to <code>[1,2,3]</code>.</td></tr>
+          <tr><td>Unit preservation</td><td>A unit vector remains unit length after rotation.</td></tr>
+          <tr><td>Known 90 degree rotation</td><td>A simple axis case proves multiplication order.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>C Target</h2>
+      <pre><code>EskfStatus quat_rotate_vec3(const eskf_real_t q_nb[ESKF_QUAT_DIM],
+                            const eskf_real_t v_b[ESKF_VEC3_DIM],
+                            eskf_real_t v_n[ESKF_VEC3_DIM]);</code></pre>
+      <p>
+        The function should reject null pointers and should assume the caller
+        provides a normalized quaternion, or explicitly normalize a local copy if
+        the lesson chooses that contract.
+      </p>
+    </section>
+
+    <section>
+      <h2>Quick Check</h2>
+      <details>
+        <summary>Why does the function name include both quaternion and vector direction?</summary>
+        <p>
+          Because frame direction is part of correctness. <code>q_nb</code>
+          rotates body vectors into navigation coordinates; the inverse rotation
+          would answer a different question.
+        </p>
+      </details>
+    </section>
+  </main>
+</body>
+</html>
+

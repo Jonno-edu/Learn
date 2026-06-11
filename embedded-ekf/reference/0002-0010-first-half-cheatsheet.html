@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reference: Embedded ESKF First Half Cheat Sheet</title>
+  <style>
+    :root {
+      --ink: #18212b;
+      --muted: #52606d;
+      --line: #d9e0e8;
+      --panel: #f6f8fb;
+      --accent: #0f6b63;
+    }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background: #fff;
+      line-height: 1.48;
+    }
+    main {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 30px;
+      letter-spacing: 0;
+    }
+    h2 {
+      margin: 26px 0 10px;
+      font-size: 20px;
+    }
+    p {
+      margin: 0 0 14px;
+      color: var(--muted);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 20px;
+      font-size: 15px;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--line);
+      padding: 9px 8px;
+    }
+    th {
+      color: var(--accent);
+      background: var(--panel);
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: var(--panel);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+    pre {
+      overflow-x: auto;
+      background: #101820;
+      color: #f6f8fb;
+      padding: 14px;
+      border-radius: 6px;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 14px;
+      background: #fff;
+    }
+    .panel h2 {
+      margin-top: 0;
+    }
+    @media (max-width: 760px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    @media print {
+      main { max-width: none; padding: 0; }
+      .panel { break-inside: avoid; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Embedded ESKF First Half Cheat Sheet</h1>
+    <p>Lessons 0002 through 0010 compressed into implementation facts.</p>
+
+    <section>
+      <h2>State Contract</h2>
+      <table>
+        <thead>
+          <tr><th>Object</th><th>Fields</th><th>Dimension</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Nominal state</td><td><code>p_n[3], v_n[3], q_nb[4], b_g[3], b_a[3]</code></td><td>16 stored values</td></tr>
+          <tr><td>Error state</td><td><code>dp[3], dv[3], dtheta[3], dbg[3], dba[3]</code></td><td>15 correction values</td></tr>
+          <tr><td>Covariance</td><td><code>P</code> over the error state</td><td>15x15</td></tr>
+          <tr><td>GPS pos/vel measurement</td><td><code>position[3], velocity[3]</code> in local NED</td><td>6</td></tr>
+          <tr><td>IMU process noise</td><td>gyro, accel, gyro-bias random walk, accel-bias random walk</td><td>12</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="grid">
+      <div class="panel">
+        <h2>Quaternion Basics</h2>
+        <pre><code>q = [w, x, y, z]
+identity = [1, 0, 0, 0]
+norm(q) should stay near 1</code></pre>
+        <p>
+          Use scalar-first layout. Multiplication composes rotations and is not
+          commutative.
+        </p>
+      </div>
+
+      <div class="panel">
+        <h2>Vector Rotation</h2>
+        <pre><code>v_n = rotate(q_nb, v_b)</code></pre>
+        <p>
+          <code>q_nb</code> rotates body-frame vectors into the local NED
+          navigation frame.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>IMU Prediction Formula Set</h2>
+      <pre><code>omega_b = gyro_rad_s - b_g
+f_b     = accel_mps2 - b_a
+
+q_nb = integrate(q_nb, omega_b, dt_s)
+
+g_n = [0, 0, 9.80665]
+a_n = rotate(q_nb, f_b) + g_n
+
+p_n = p_n + v_old * dt_s + 0.5 * a_n * dt_s * dt_s
+v_n = v_n + a_n * dt_s</code></pre>
+    </section>
+
+    <section>
+      <h2>Skew Matrix</h2>
+      <pre><code>skew([ax, ay, az]) =
+[  0  -az   ay
+   az    0  -ax
+  -ay   ax    0 ]</code></pre>
+      <p>
+        This matrix appears in linearized attitude and acceleration coupling.
+      </p>
+    </section>
+
+    <section>
+      <h2>Error Dynamics Blocks For Course V1</h2>
+      <table>
+        <thead>
+          <tr><th>Block</th><th>Value</th><th>Why</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>F[p, v]</code></td><td><code>I</code></td><td>Position error integrates velocity error.</td></tr>
+          <tr><td><code>F[v, dtheta]</code></td><td><code>-R_nb * skew(f_b)</code></td><td>Attitude error rotates specific force incorrectly.</td></tr>
+          <tr><td><code>F[v, dba]</code></td><td><code>-R_nb</code></td><td>Accel-bias error becomes acceleration error after rotation.</td></tr>
+          <tr><td><code>F[dtheta, dtheta]</code></td><td><code>-skew(omega_b)</code></td><td>Angular-rate coupling moves attitude error.</td></tr>
+          <tr><td><code>F[dtheta, dbg]</code></td><td><code>-I</code></td><td>Gyro-bias error drives attitude drift.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Active Coding Rule</h2>
+      <p>
+        Build one target at a time. Keep the repo warning-clean and keep future
+        lesson tests inactive until the current lesson target is green.
+      </p>
+    </section>
+  </main>
+</body>
+</html>

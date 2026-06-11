@@ -4,10 +4,8 @@
 
 uint32_t sensor_period_ms_to_ticks(uint32_t period_ms, uint32_t tick_rate_hz)
 {
-    /* TODO: convert milliseconds to ticks and round nonzero periods up. */
-    (void)period_ms;
-    (void)tick_rate_hz;
-    return 0u;
+    uint64_t ticks = ((uint64_t) period_ms  * tick_rate_hz + 999u) / 1000u;
+    return (uint32_t) ticks;
 }
 
 void sensor_timing_policy_init(
@@ -30,8 +28,34 @@ void sensor_timing_policy_init(
 
 SensorTimingResult sensor_timing_policy_record_send(SensorTimingPolicy *policy, bool sent)
 {
-    /* TODO: record sends/misses and latch freshness faults after the threshold. */
-    (void)policy;
-    (void)sent;
-    return SENSOR_TIMING_FAULT;
+    if (policy == NULL)
+    {
+        return SENSOR_TIMING_FAULT;
+    }
+
+    if (sent)
+    {
+        policy->total_sent_sample_count += 1u;
+        policy->consecutive_missed_send_count = 0u;
+    }else
+    {
+        policy->consecutive_missed_send_count += 1u;
+        policy->total_missed_send_count += 1u;
+
+        if (policy->consecutive_missed_send_count >= policy->missed_send_fault_threshold)
+        {
+            policy->freshness_fault_latched = true;
+        }
+    }
+
+    if (policy->freshness_fault_latched)
+    {
+        return SENSOR_TIMING_FAULT;
+    }
+    if (!sent)
+    {
+        return SENSOR_TIMING_MISSED_SEND;
+    }
+
+    return SENSOR_TIMING_OK;
 }

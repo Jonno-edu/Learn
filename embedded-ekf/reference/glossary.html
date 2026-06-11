@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Embedded ESKF Glossary</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17202a;
+      --muted: #53616f;
+      --line: #d8dee6;
+      --panel: #f5f7fa;
+      --accent: #0f6b63;
+    }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background: #ffffff;
+      line-height: 1.55;
+    }
+    main {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 30px;
+      letter-spacing: 0;
+    }
+    p {
+      margin: 0 0 18px;
+      color: var(--muted);
+    }
+    dl {
+      display: grid;
+      gap: 14px;
+    }
+    div.term {
+      border-top: 1px solid var(--line);
+      padding-top: 14px;
+    }
+    dt {
+      font-weight: 700;
+      color: var(--accent);
+    }
+    dd {
+      margin: 4px 0 0;
+    }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: var(--panel);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+    @media print {
+      main { max-width: none; padding: 0; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Embedded ESKF Glossary</h1>
+    <p>Short definitions used consistently across the course.</p>
+
+    <dl>
+      <div class="term">
+        <dt>ESKF</dt>
+        <dd>Error-state Kalman filter. The nominal state carries the best estimate, while a small error state carries uncertainty and corrections.</dd>
+      </div>
+
+      <div class="term">
+        <dt>Nominal state</dt>
+        <dd>The estimator's main state: position, velocity, attitude quaternion, gyro bias, and accelerometer bias.</dd>
+      </div>
+
+      <div class="term">
+        <dt>Error state</dt>
+        <dd>The small correction state: position error, velocity error, 3D attitude error, gyro-bias error, and accelerometer-bias error.</dd>
+      </div>
+
+      <div class="term">
+        <dt>Local NED</dt>
+        <dd>A local navigation frame fixed at the launch pad where x is north, y is east, and z is down.</dd>
+      </div>
+
+      <div class="term">
+        <dt>Body frame</dt>
+        <dd>The rocket-fixed frame where <code>x_b</code> points along the nose, <code>y_b</code> points right, and <code>z_b</code> points down.</dd>
+      </div>
+
+      <div class="term">
+        <dt><code>q_nb</code></dt>
+        <dd>The attitude quaternion that rotates body-frame vectors into the local navigation frame.</dd>
+      </div>
+
+      <div class="term">
+        <dt>Specific force</dt>
+        <dd>The accelerometer measurement after bias correction. It is not simply vehicle acceleration because gravity handling depends on the frame and model.</dd>
+      </div>
+
+      <div class="term">
+        <dt>Covariance</dt>
+        <dd>A matrix that represents uncertainty and correlation in the error state, not a direct copy of the nominal state.</dd>
+      </div>
+
+      <div class="term">
+        <dt>Gyro bias</dt>
+        <dd>A slowly changing angular-rate offset, stored in body-frame <code>rad/s</code>, subtracted from raw gyro measurements before attitude prediction.</dd>
+      </div>
+
+      <div class="term">
+        <dt>Accelerometer bias</dt>
+        <dd>A slowly changing specific-force offset, stored in body-frame <code>m/s^2</code>, subtracted from raw accelerometer measurements before acceleration prediction.</dd>
+      </div>
+
+      <div class="term">
+        <dt>Skew matrix</dt>
+        <dd>A 3x3 matrix form of the cross product. It lets attitude-error terms appear inside ordinary matrix equations.</dd>
+      </div>
+
+      <div class="term">
+        <dt><code>F</code> matrix</dt>
+        <dd>The 15x15 linearized error-dynamics matrix used to predict how small errors move through time.</dd>
+      </div>
+
+      <div class="term">
+        <dt><code>G</code> matrix</dt>
+        <dd>The 15x12 noise-input matrix that maps IMU measurement noise and bias random walk into the error state.</dd>
+      </div>
+
+      <div class="term">
+        <dt>Random walk</dt>
+        <dd>A model where uncertainty grows over time because the underlying value can drift unpredictably, commonly used for IMU bias evolution.</dd>
+      </div>
+    </dl>
+  </main>
+</body>
+</html>
