@@ -30,23 +30,59 @@ ImuHealthResult imu_health_record_queued_sample(
     uint32_t sequence,
     uint32_t now_tick)
 {
-    /* TODO: record the sample, clear consecutive empty receives, and preserve latches. */
-    (void)health;
-    (void)sequence;
-    (void)now_tick;
-    return IMU_HEALTH_FAULT;
+    if (health == NULL)
+    {
+        return IMU_HEALTH_FAULT;
+    }
+    health->queued_sample_count += 1u;
+    health->last_sample_tick = now_tick;
+    health->last_sequence = sequence;
+    health->has_sample = true;
+    health->consecutive_empty_receive_count = 0u;
+
+    if (health->overload_fault_latched || health->freshness_fault_latched)
+    {
+        return IMU_HEALTH_FAULT;
+    }
+
+    return IMU_HEALTH_OK;
 }
 
 ImuHealthResult imu_health_record_queue_drop(ImuHealth *health)
 {
-    /* TODO: count drops and latch overload at the configured threshold. */
-    (void)health;
-    return IMU_HEALTH_FAULT;
+    if (health == NULL)
+    {
+        return IMU_HEALTH_FAULT;
+    }
+
+    health->queue_drop_count += 1u;
+
+    if (health->queue_drop_count >= health->drop_fault_threshold)
+    {
+        health->overload_fault_latched = true;
+        return IMU_HEALTH_FAULT;
+    }
+
+
+    return IMU_HEALTH_DROP_RECORDED;
 }
 
 ImuHealthResult imu_health_record_empty_receive(ImuHealth *health)
 {
-    /* TODO: count empty receives and latch freshness at the configured threshold. */
-    (void)health;
-    return IMU_HEALTH_FAULT;
+    if (health == NULL)
+    {
+        return IMU_HEALTH_FAULT;
+    }
+    
+    health->empty_receive_count += 1;
+    health->consecutive_empty_receive_count += 1;
+
+    if (health->consecutive_empty_receive_count >= health->empty_receive_fault_threshold)
+    {
+        health->freshness_fault_latched = true;
+        return IMU_HEALTH_FAULT;
+    }
+
+    return IMU_HEALTH_EMPTY_RECORDED;
+
 }
